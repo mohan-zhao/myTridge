@@ -22,4 +22,7 @@ Imports:
     htmlTable,
     pander
 Suggests: 
-    testthat
+    testthat,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
