@@ -63,7 +63,7 @@ double ObjectiveFunction(arma::vec theta,const std::string Test_case,arma::vec y
     arma::vec tune_vector = ((y - MeanFunction(X, theta,Test_case)).t() * X).t();
     double regularization = norm(theta, 2);
     double result = -loss /  (trex_c * norm(tune_vector,2 )) + regularization;
-    cout << result;
+    
     return result;
   }
 }

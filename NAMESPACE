@@ -2,5 +2,12 @@
 
 export(TridgeEst)
 export(relativeError)
+importFrom(Matrix,mean)
 importFrom(Rcpp,sourceCpp)
+importFrom(glmnet,cv.glmnet)
+importFrom(glmnet,glmnet)
+importFrom(htmlTable,htmlTable)
+importFrom(pander,pander)
+importFrom(stats,coef)
+importFrom(stats,rnorm)
 useDynLib(myTridge, .registration = TRUE)

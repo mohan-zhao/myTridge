@@ -5,15 +5,17 @@
 #' @param num.par num of volomns of the matrix y
 #' @param k magnitude of the mutual correlations
 #' @return tridge estimator vector
-#' @details DETAILS
-#' @examples TridgeEst(Test.case="gaussian",num.obs=100,num.par=300,k=0.0)
-#' \dontrun{
-#' if(interactive()){
-#'  #EXAMPLE1
-#'  }
-#' }
+#' @details First compute the stationary point for beta, then compute the ridge estimaor for m equally spaced tuning 
+#'         parameters and find the one minimize the objective function.
+#' @examples 
+#' Test.case="gaussian"
+#' num.obs=100
+#' num.par=300
+#' k=0.0
 #' @rdname TridgeEst
 #' @export 
+#' @importFrom glmnet glmnet cv.glmnet
+#' @importFrom stats rnorm coef 
 TridgeEst<-function(Test.case,num.obs,num.par,k){
   qnorm <- function(q, v){
     (sum(abs(v) ^ q)) ^ (1 / q)
@@ -27,11 +29,6 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
   
   class.num <- 1
   
-  ##### Required package
-  
-  library(glmnet) # Generalized linear model
-  library(MASS) # Multivariate normal
-  
   ##### signal-to-noise ratio for gaussian test case 
   if(Test.case == "gaussian") {
     stn <- 10 # signal-to-noise ratio
@@ -40,7 +37,7 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
   }
   
   mu <- rep(0, num.par)
-  beta <- rnorm(num.par)
+  beta <- stats::rnorm(num.par)
   
  
     
@@ -60,16 +57,16 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
    
     cat("  -> Perform the K-fold cross validation pipeline... ")
     if(num.obs < num.par) {
-      cv <- cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
+      cv <- glmnet::cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
       
       ##Fit a generalized linear model via penalized maximum likelihood
       
-      cv.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=cv$lambda.min)
+      cv.estimation <- glmnet::glmnet(X, y, alpha=0, family=Test.case, lambda=cv$lambda.min)
       
-      CV.estimator <- as.vector(coef(cv.estimation))[-1]
+      CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
     } else {
-      cv.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=0)
-      CV.estimator <- as.vector(coef(cv.estimation))[-1]
+      cv.estimation <- glmnet::glmnet(X, y, alpha=0, family=Test.case, lambda=0)
+      CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
     }
     
     
@@ -87,7 +84,7 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
       
     }
     
-    length.tuning <- 100
+    length.tuning <- 1000
     edr.lambda <- qnorm(2,GradientLs(GlmTrex.estimators,X,y,Test.case)) / (2 * qnorm(2, GlmTrex.estimators))
     r.max <- edr.lambda + 0.1
     r.min <- max(0.05, (edr.lambda - 0.1))
@@ -96,16 +93,16 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
     } else {
       tuning.parameters <- seq(r.min, r.max, length.out=length.tuning)
     }
-    init <- cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
-    init.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=init$lambda.min)
-    init.vector <- as.vector(coef(init.estimation))[-1]
+    init <- glmnet::cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
+    init.estimation <- glmnet::glmnet(X, y, alpha=0, family=Test.case, lambda=init$lambda.min)
+    init.vector <- as.vector(stats::coef(init.estimation))[-1]
     Ridge.estimators <- matrix(nrow=num.par, ncol=length.tuning)
     cost <- rep(0, length.tuning)
     for(tune in 1:length.tuning) {
       r <- tuning.parameters[tune]
-      estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=r)
+      estimation <- glmnet::glmnet(X, y, alpha=0, family=Test.case, lambda=r)
       ###did not change this following line to improve the speed
-      Ridge.estimators[, tune] <- as.vector(coef(estimation)[-1])
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
       
       ####compute ObjectFunc value to find minimum
       estimator.r <- as.vector(Ridge.estimators[, tune])

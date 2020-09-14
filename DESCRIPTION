@@ -18,9 +18,10 @@ LinkingTo:
 Imports: 
     Rcpp,
     glmnet,
-    MASS,
     htmlTable,
-    pander
+    MASS,
+    pander,
+    Matrix
 Suggests: 
     testthat,
     knitr,

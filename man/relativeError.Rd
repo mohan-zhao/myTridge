@@ -23,11 +23,13 @@ a table showing the errors for different methods
 \description{
 compare errors of estimator for tridge with MLE or 10 fold CV
 }
-\examples{
-TridgeError("gaussian",100,300,0,5)
-\dontrun{
-if(interactive()){
- #EXAMPLE1
- }
+\details{
+call TridgeEst to computer the t-ridge estimator then compare the relative errors
 }
+\examples{
+Test.case="gaussian"
+num.obs=100
+num.par=300
+k=0.0
+num.runs=5
 }

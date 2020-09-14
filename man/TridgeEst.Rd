@@ -22,13 +22,12 @@ tridge estimator vector
 generate a tridge estimator for objective function
 }
 \details{
-DETAILS
+First compute the stationary point for beta, then compute the ridge estimaor for m equally spaced tuning
+parameters and find the one minimize the objective function.
 }
 \examples{
-TridgeEst(Test.case="gaussian",num.obs=100,num.par=300,k=0.0)
-\dontrun{
-if(interactive()){
- #EXAMPLE1
- }
-}
+Test.case="gaussian"
+num.obs=100
+num.par=300
+k=0.0
 }
