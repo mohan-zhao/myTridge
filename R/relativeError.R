@@ -21,148 +21,148 @@
 #' @importFrom htmlTable htmlTable
 #' @importFrom pander pander
 relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
-
-qnorm <- function(q, v){
-  (sum(abs(v) ^ q)) ^ (1 / q)
-}
-
-if(Test.case=="gaussian") {
-  TREX.c.vector <- 2 
-} else {
-  TREX.c.vector <- 1
-}
-class.num <- 1
-
-
-##### signal-to-noise ratio for gaussian test case 
-if(Test.case == "gaussian") {
-  stn <- 10 # signal-to-noise ratio
-} else {
-  stn <- NA
-}
-
-
-# Initialize absolute error
-errors.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
-relative.errors.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
-errors.CV10 <- rep(NA, num.runs)
-relative.errors.CV10 <- rep(NA, num.runs)
-
-
-beta.error.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
-relative.beta.error.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
-beta.error.CV10 <- rep(NA, num.runs)
-relative.beta.error.CV10 <- rep(NA, num.runs)
-
-ratio <- rep(NA, num.runs)
-
-mu <- rep(0, num.par)
-beta <- stats::rnorm(num.par)
-
-for (run in 1:num.runs){
-  cat(sprintf("run %d out of %d runs\n", run, num.runs))
-  cat("  -> generate test case... ")
-  cat("  -> Normalize each column of the design matrix... ")
   
+  qnorm <- function(q, v){
+    (sum(abs(v) ^ q)) ^ (1 / q)
+  }
   
-  ret <- genDataList(num.obs, mu, num.par,
-                     k, beta, stn,Test.case)
-  
-  X <- ret$normData
-  
-  beta <-ret$beta
-  y <- as.vector(ret$y)
-  
-  
-  
-  
-  cat("  -> Perform the K-fold cross validation pipeline... ")
-  if(num.obs < num.par) {
-    cv <- glmnet::cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
-    
-    ##Fit a generalized linear model via penalized maximum likelihood
-    
-    cv.estimation <- glmnet::glmnet(X, y, alpha=0, family=Test.case, lambda=cv$lambda.min)
-    
-    CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
+  if(Test.case=="gaussian") {
+    TREX.c.vector <- 2 
   } else {
-    cv.estimation <- glmnet::glmnet(X, y, alpha=0, family=Test.case, lambda=0)
-    CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
+    TREX.c.vector <- 1
+  }
+  class.num <- 1
+  
+  
+  ##### signal-to-noise ratio for gaussian test case 
+  if(Test.case == "gaussian") {
+    stn <- 10 # signal-to-noise ratio
+  } else {
+    stn <- NA
   }
   
   
-  cat("  -> compute T-ridge estimators... ")
+  # Initialize absolute error
+  errors.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
+  relative.errors.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
+  errors.CV10 <- rep(NA, num.runs)
+  relative.errors.CV10 <- rep(NA, num.runs)
   
   
-  estimator <- TridgeEst(Test.case,num.obs,num.par,k)
-  cat("done\n")
+  beta.error.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
+  relative.beta.error.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
+  beta.error.CV10 <- rep(NA, num.runs)
+  relative.beta.error.CV10 <- rep(NA, num.runs)
   
-  ##### Compute the prediction errors 
-  cat("  -> compute errors... ")
+  ratio <- rep(NA, num.runs)
   
-  ### Prediction error
-  for(trex.err in 1:length(TREX.c.vector)) {
-    errors.TREX[run, trex.err] <- qnorm(2, abs(X %*% (estimator - beta))) / sqrt(num.obs)
+  mu <- rep(0, num.par)
+  beta <- stats::rnorm(num.par)
+  
+  for (run in 1:num.runs){
+    cat(sprintf("run %d out of %d runs\n", run, num.runs))
+    cat("  -> generate test case... ")
+    cat("  -> Normalize each column of the design matrix... ")
+    
+    
+    ret <- genDataList(num.obs, mu, num.par,
+                       k, beta, stn,Test.case)
+    
+    X <- ret$normData
+    
+    beta <-ret$beta
+    y <- as.vector(ret$y)
+    
+    
+    
+    
+    cat("  -> Perform the K-fold cross validation pipeline... ")
+    if(num.obs < num.par) {
+      cv <- glmnet::cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
+      
+      ##Fit a generalized linear model via penalized maximum likelihood
+      
+      cv.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=cv$lambda.min)
+      
+      CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
+    } else {
+      cv.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=0)
+      CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
+    }
+    
+    
+    cat("  -> compute T-ridge estimators... ")
+    
+    
+    estimator <- TridgeEst(Test.case,num.obs,num.par,k)
+    cat("done\n")
+    
+    ##### Compute the prediction errors 
+    cat("  -> compute errors... ")
+    
+    ### Prediction error
+    for(trex.err in 1:length(TREX.c.vector)) {
+      errors.TREX[run, trex.err] <- qnorm(2, abs(X %*% (estimator - beta))) / sqrt(num.obs)
+    }
+    errors.CV10[run] <-qnorm(2, abs(X %*% (CV.estimator - beta))) / sqrt(num.obs) 
+    
+    #Relative Prediction error
+    relative.errors.TREX[run, ] <- errors.TREX[run, ] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
+    relative.errors.CV10[run] <- errors.CV10[run] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
+    
+    # beta error
+    for(trex.b.err in 1:length(TREX.c.vector)) {
+      beta.error.TREX[run, trex.b.err] <- qnorm(2, (estimator - beta))
+    }
+    beta.error.CV10[run] <- qnorm(2, (CV.estimator - beta))
+    
+    #relative beta error
+    relative.beta.error.TREX[run, ] <- beta.error.TREX[run, ] / qnorm(2, beta)
+    relative.beta.error.CV10[run] <- beta.error.CV10[run] / qnorm(2, beta)
+    cat("done\n")
   }
-  errors.CV10[run] <-qnorm(2, abs(X %*% (CV.estimator - beta))) / sqrt(num.obs) 
-  
-  #Relative Prediction error
-  relative.errors.TREX[run, ] <- errors.TREX[run, ] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
-  relative.errors.CV10[run] <- errors.CV10[run] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
-  
-  # beta error
-  for(trex.b.err in 1:length(TREX.c.vector)) {
-    beta.error.TREX[run, trex.b.err] <- qnorm(2, (estimator - beta))
+  ##### Output results
+  output.Data <- matrix(nrow = (length(TREX.c.vector) + 1), ncol = 4)
+  for(case in 1:length(TREX.c.vector)){
+    output.Data[case, ] <- c(Matrix::mean(errors.TREX[, case]), Matrix::mean(beta.error.TREX[, case]), Matrix::mean(relative.errors.TREX[, case]), Matrix::mean(relative.beta.error.TREX[, case]))
   }
-  beta.error.CV10[run] <- qnorm(2, (CV.estimator - beta))
+  output.Data[(case + 1), ] <- c(Matrix::mean(errors.CV10), Matrix::mean(beta.error.CV10), Matrix::mean(relative.errors.CV10), Matrix::mean(relative.beta.error.CV10))
+  names <- rep("", length(TREX.c.vector))
+  for(name in 1:length(TREX.c.vector)){
+    names[name] <- paste0("T-ridge", TREX.c.vector[name])
+  }
   
-  #relative beta error
-  relative.beta.error.TREX[run, ] <- beta.error.TREX[run, ] / qnorm(2, beta)
-  relative.beta.error.CV10[run] <- beta.error.CV10[run] / qnorm(2, beta)
-  cat("done\n")
-}
-##### Output results
-output.Data <- matrix(nrow = (length(TREX.c.vector) + 1), ncol = 4)
-for(case in 1:length(TREX.c.vector)){
-  output.Data[case, ] <- c(Matrix::mean(errors.TREX[, case]), Matrix::mean(beta.error.TREX[, case]), Matrix::mean(relative.errors.TREX[, case]), Matrix::mean(relative.beta.error.TREX[, case]))
-}
-output.Data[(case + 1), ] <- c(Matrix::mean(errors.CV10), Matrix::mean(beta.error.CV10), Matrix::mean(relative.errors.CV10), Matrix::mean(relative.beta.error.CV10))
-names <- rep("", length(TREX.c.vector))
-for(name in 1:length(TREX.c.vector)){
-  names[name] <- paste0("T-ridge", TREX.c.vector[name])
-}
-
-if(num.obs < num.par) {
-  rownames(output.Data) <- c(names, "10-fold CV")
-} else {
-  rownames(output.Data) <- c(names, "MLE")
-}
-
-colnames(output.Data)<- c("Xbeta", "Beta", "r.Xbeta", "r.Beta")
-cat("Simulation Results : \n")
-
-output <- 
-  matrix(c(round(output.Data[1, 3], 2),
-           round(output.Data[2, 3], 2),
-           round(output.Data[1, 4], 2),
-           round(output.Data[2, 4], 2)), 
-         ncol=4, byrow = TRUE)
-
-
-if(num.obs < num.par) {
-  H <- c("T-ridge", "10-fold CV",
-         "T-ridge", "10-fold CV")
-} else {
-  H <- c("T-ridge(sd)", "MLE(sd)",
-         "T-ridge(sd)", "MLE(sd)")
-}
-
-htmlTable::htmlTable(output,
-          header =  H,
-          rnames = "Mean relative errors",
-          rgroup = paste0("Case : ", Test.case),
-          n.rgroup = c(1),
-          cgroup = c(pander::pander("$\\frac{||X\\hat{\\beta}_{T-ridge} - X\\beta^{*}||_{2}}{||X\\beta^{*}||_{2}}$"), pander::pander("$\\frac{||\\hat{\\beta}_{T-ridge} - \\beta^{*}||_{2}}{||\\beta^{*}||_{2}}$")),
-          n.cgroup = c(2,2), 
-          caption=paste0("(n,p,k)=(", num.obs, ",", num.par, ",", k, ")"))
+  if(num.obs < num.par) {
+    rownames(output.Data) <- c(names, "10-fold CV")
+  } else {
+    rownames(output.Data) <- c(names, "MLE")
+  }
+  
+  colnames(output.Data)<- c("Xbeta", "Beta", "r.Xbeta", "r.Beta")
+  cat("Simulation Results : \n")
+  
+  output <- 
+    matrix(c(round(output.Data[1, 3], 2),
+             round(output.Data[2, 3], 2),
+             round(output.Data[1, 4], 2),
+             round(output.Data[2, 4], 2)), 
+           ncol=4, byrow = TRUE)
+  
+  
+  if(num.obs < num.par) {
+    H <- c("T-ridge", "10-fold CV",
+           "T-ridge", "10-fold CV")
+  } else {
+    H <- c("T-ridge(sd)", "MLE(sd)",
+           "T-ridge(sd)", "MLE(sd)")
+  }
+  
+  htmlTable::htmlTable(output,
+                       header =  H,
+                       rnames = "Mean relative errors",
+                       rgroup = paste0("Case : ", Test.case),
+                       n.rgroup = c(1),
+                       cgroup = c(pander::pander("$\\frac{||X\\hat{\\beta}_{T-ridge} - X\\beta^{*}||_{2}}{||X\\beta^{*}||_{2}}$"), pander::pander("$\\frac{||\\hat{\\beta}_{T-ridge} - \\beta^{*}||_{2}}{||\\beta^{*}||_{2}}$")),
+                       n.cgroup = c(2,2), 
+                       caption=paste0("(n,p,k)=(", num.obs, ",", num.par, ",", k, ")"))
 }

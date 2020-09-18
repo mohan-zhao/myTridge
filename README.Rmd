@@ -2,8 +2,6 @@
 output: github_document
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
@@ -19,7 +17,8 @@ knitr::opts_chunk$set(
 [![Travis build status](https://travis-ci.com/mohan-zhao/myTridge.svg?branch=master)](https://travis-ci.com/mohan-zhao/myTridge)
 <!-- badges: end -->
 
-The goal of myTridge is to ...
+The goal of myTridge is to show that ridge esti-
+mators can be modified such that tuning parameters can be avoided altogether and apply the t-ridge estimator to generalized linear models.
 
 ## Installation
 
@@ -41,21 +40,16 @@ This is a basic example which shows you how to solve a common problem:
 
 ```{r example}
 library(myTridge)
-## basic example code
+## Here "gaussian" is from three most common cases for the distribution F: Gaussian,Poisson, and Bernoulli.
+### high dimensional X :100x300
+### k is the magnitude of the mutual correlations for covariance matrix 
+TridgeEst(Test.case="gaussian",num.obs = 100,num.par=300,k=0.0)
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
-
 ```{r cars}
-summary(cars)
+## example of relativeError() function
+###shows t-ridge outperforms K-fold cross-validated ridge
+relativeError("gaussian",100,300,0.0,5)
 ```
 
 You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date.
-
-You can also embed plots, for example:
-
-```{r pressure, echo = FALSE}
-plot(pressure)
-```
-
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub!
