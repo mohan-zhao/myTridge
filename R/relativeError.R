@@ -20,6 +20,7 @@
 #' @importFrom stats rnorm coef
 #' @importFrom htmlTable htmlTable
 #' @importFrom pander pander
+
 relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
   
   qnorm <- function(q, v){
@@ -33,14 +34,12 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
   }
   class.num <- 1
   
-  
   ##### signal-to-noise ratio for gaussian test case 
   if(Test.case == "gaussian") {
     stn <- 10 # signal-to-noise ratio
   } else {
     stn <- NA
   }
-  
   
   # Initialize absolute error
   errors.TREX <- matrix(nrow=num.runs, ncol=length(TREX.c.vector))
@@ -60,9 +59,9 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
   beta <- stats::rnorm(num.par)
   
   for (run in 1:num.runs){
-    cat(sprintf("run %d out of %d runs\n", run, num.runs))
-    cat("  -> generate test case... ")
-    cat("  -> Normalize each column of the design matrix... ")
+    #cat(sprintf("run %d out of %d runs\n", run, num.runs))
+    #cat("  -> generate test case... ")
+    #cat("  -> Normalize each column of the design matrix... ")
     
     
     ret <- genDataList(num.obs, mu, num.par,
@@ -76,7 +75,7 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
     
     
     
-    cat("  -> Perform the K-fold cross validation pipeline... ")
+    #cat("  -> Perform the K-fold cross validation pipeline... ")
     if(num.obs < num.par) {
       cv <- glmnet::cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
       
@@ -91,14 +90,14 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
     }
     
     
-    cat("  -> compute T-ridge estimators... ")
+    #cat("  -> compute T-ridge estimators... ")
     
     
-    estimator <- TridgeEst(Test.case,num.obs,num.par,k)
-    cat("done\n")
+    estimator <- TridgeEst(Test.case,X,y)
+    #cat("done\n")
     
     ##### Compute the prediction errors 
-    cat("  -> compute errors... ")
+    #cat("  -> compute errors... ")
     
     ### Prediction error
     for(trex.err in 1:length(TREX.c.vector)) {
@@ -119,7 +118,7 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
     #relative beta error
     relative.beta.error.TREX[run, ] <- beta.error.TREX[run, ] / qnorm(2, beta)
     relative.beta.error.CV10[run] <- beta.error.CV10[run] / qnorm(2, beta)
-    cat("done\n")
+    #cat("done\n")
   }
   ##### Output results
   output.Data <- matrix(nrow = (length(TREX.c.vector) + 1), ncol = 4)

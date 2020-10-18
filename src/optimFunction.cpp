@@ -142,7 +142,7 @@ private:
 arma::vec optim_ObLs(arma::vec theta,arma::mat X,arma::vec y,const std::string Test_case){
   ObLs dist(X,y,Test_case);
   Roptim<ObLs> opt("CG");
-  //opt.control.type = 1;
+  opt.control.type = 1;
   opt.minimize(dist, theta);
   return theta;
   
@@ -202,10 +202,10 @@ private:
 
 // [[Rcpp::export]]
 arma::vec optim_ObFn(arma::vec theta,arma::mat X,arma::vec y,const std::string Test_case,double trex_c){
-  ObFn dist(X,y,Test_case,trex_c);
+  ObFn dist2(X,y,Test_case,trex_c);
   Roptim<ObFn> opt2("CG");
   opt2.control.type = 1;
-  opt2.minimize(dist, theta);
+  opt2.minimize(dist2, theta);
   
   return theta;
   

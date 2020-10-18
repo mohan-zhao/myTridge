@@ -1,22 +1,22 @@
 #' @title Tridge Estimator
 #' @description generate a tridge estimator for objective function
 #' @param Test.case three different function distributions
-#' @param num.obs num of rows of the matrix X
-#' @param num.par num of volomns of the matrix y
-#' @param k magnitude of the mutual correlations
+#' @param X matrix with num.obs x num.par dimension
+#' @param y vector, num.obs elements
 #' @return tridge estimator vector
-#' @details First compute the stationary point for beta, then compute the ridge estimaor for m equally spaced tuning 
+#' @details First compute the stationary point for beta by calling optim_ObFn, then compute the ridge estimaor for m equally spaced tuning 
 #'         parameters and find the one minimize the objective function.
 #' @examples 
 #' Test.case="gaussian"
-#' num.obs=100
-#' num.par=300
-#' k=0.0
+#' X=matrix(c(1:12),3,4)
+#' y=c(2,4,5)
 #' @rdname TridgeEst
 #' @export 
 #' @importFrom glmnet cv.glmnet glmnet
-#' @importFrom stats rnorm coef 
-TridgeEst<-function(Test.case,num.obs,num.par,k){
+#' @importFrom stats rnorm coef
+#' 
+#'   
+TridgeEst<-function(Test.case,X,y){
   qnorm <- function(q, v){
     (sum(abs(v) ^ q)) ^ (1 / q)
   }
@@ -26,59 +26,24 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
   } else {
     TREX.c.vector <- 1
   }
-  
+  num.obs <- nrow(X)
+  num.par <- ncol(X)
   class.num <- 1
   
   ##### signal-to-noise ratio for gaussian test case 
   if(Test.case == "gaussian") {
     stn <- 10 # signal-to-noise ratio
-  } else {
+  }else{
     stn <- NA
   }
-  
-  mu <- rep(0, num.par)
-  beta <- stats::rnorm(num.par)
-  
-  
-  
-  cat("  -> generate test case... ")
-  cat("  -> Normalize each column of the design matrix... ")
-  
-  
-  ret <- genDataList(num.obs, mu, num.par,
-                     k, beta, stn,Test.case)
-  
-  X <- ret$normData
-  
-  beta <-ret$beta
-  y <- as.vector(ret$y)
-  
-  
-  
-  cat("  -> Perform the K-fold cross validation pipeline... ")
-  if(num.obs < num.par) {
-    cv <- glmnet::cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
-    
-    ##Fit a generalized linear model via penalized maximum likelihood
-    
-    cv.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=cv$lambda.min)
-    
-    CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
-  } else {
-    cv.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=0)
-    CV.estimator <- as.vector(stats::coef(cv.estimation))[-1]
-  }
-  
-  
-  cat("  -> compute T-ridge estimators... ")
+  ###compute T-ridge estimators
   par0 <-rep(0,num.par)
-  ###does type=1 make a difference in this optim?
   par1 <- optim_ObLs(par0,X,y,Test.case)
   
   GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
   for(trex.e in 1:length(TREX.c.vector)) {
     TREX.c <- TREX.c.vector[trex.e]
-    ###find the stationary pointc
+    ###find the stationary point
     GlmTrex.estimation <- optim_ObFn(par1,X,y,Test.case,TREX.c)
     GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
     
@@ -93,15 +58,13 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
   } else {
     tuning.parameters <- seq(r.min, r.max, length.out=length.tuning)
   }
-  init <- glmnet::cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
-  init.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=init$lambda.min)
-  init.vector <- as.vector(stats::coef(init.estimation))[-1]
+  
   Ridge.estimators <- matrix(nrow=num.par, ncol=length.tuning)
   cost <- rep(0, length.tuning)
   for(tune in 1:length.tuning) {
     r <- tuning.parameters[tune]
     estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=r)
-    ###did not change this following line to improve the speed
+    
     Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
     
     ####compute ObjectFunc value to find minimum
@@ -109,6 +72,6 @@ TridgeEst<-function(Test.case,num.obs,num.par,k){
     cost[tune] <- ObjectiveFunction(estimator.r,Test.case,y,X,TREX.c)
   }
   estimator <- Ridge.estimators[, which.min(cost)]
-  cat("done\n")
+   
   return(estimator)
 }

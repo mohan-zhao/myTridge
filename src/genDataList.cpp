@@ -80,6 +80,7 @@ List genDataList(const int n, const arma::vec& mu, int p, double rho,
   ret["normData"] = normData;
   ret["beta"] = beta;
   ret["y"] = y;
+  ret["Test.case"]=Test_case;
   return ret;
   
 }

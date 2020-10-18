@@ -9,6 +9,7 @@ knitr::opts_chunk$set(
   fig.path = "man/figures/README-",
   out.width = "100%"
 )
+
 ```
 
 # myTridge
@@ -38,18 +39,32 @@ devtools::install_github("mohan-zhao/myTridge")
 
 This is a basic example which shows you how to solve a common problem:
 
-```{r example}
+```{r}
 library(myTridge)
-## Here "gaussian" is from three most common cases for the distribution F: Gaussian,Poisson, and Bernoulli.
-### high dimensional X :100x300
-### k is the magnitude of the mutual correlations for covariance matrix 
-TridgeEst(Test.case="gaussian",num.obs = 100,num.par=300,k=0.0)
+devtools::load_all()
+## Here "gaussian" is from three most common cases for the distribution F: Gaussian,Poisson, and Binomial.
+### X and y are matrix and vector under gaussian distribution in data folder
+### dimension of X :10x30
+### generate a tridge estimator
+TridgeEst(Test.case="gaussian",X=X_gau,y=y_gau)
 ```
 
-```{r cars}
+```{r example}
+
+### You can also use genDataList() function in this package to generate a high dimensional matrix X and y randomly then generate a tridge estimator
+list<-genDataList(n=100,mu=rep(0,300),p=300, rho=0.,beta=rnorm(300, mean = 0, sd = 1),SNR=10,Test_case="gaussian")
+X<-list$normData
+y<-list$y
+myTridge::TridgeEst(Test.case="gaussian",X=X,y=y)
+```
+
+
+```{r,echo=FALSE}
 ## example of relativeError() function
-###shows t-ridge outperforms K-fold cross-validated ridge
-relativeError("gaussian",100,300,0.0,5)
+###shows t-ridge outperforms K-fold cross-validated ridge by generate X and y for num.runs times randomly
+### dimension of X: num.obs x num.par
+### k is magnitude of the mutual correlations when generating X
+myTridge::relativeError(Test.case="gaussian",num.obs=100,num.par=300,k=0.,num.runs=5)
 ```
 
 You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date.

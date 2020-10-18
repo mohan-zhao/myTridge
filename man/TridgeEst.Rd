@@ -4,16 +4,14 @@
 \alias{TridgeEst}
 \title{Tridge Estimator}
 \usage{
-TridgeEst(Test.case, num.obs, num.par, k)
+TridgeEst(Test.case, X, y)
 }
 \arguments{
 \item{Test.case}{three different function distributions}
 
-\item{num.obs}{num of rows of the matrix X}
+\item{X}{matrix with num.obs x num.par dimension}
 
-\item{num.par}{num of volomns of the matrix y}
-
-\item{k}{magnitude of the mutual correlations}
+\item{y}{vector, num.obs elements}
 }
 \value{
 tridge estimator vector
@@ -22,12 +20,11 @@ tridge estimator vector
 generate a tridge estimator for objective function
 }
 \details{
-First compute the stationary point for beta, then compute the ridge estimaor for m equally spaced tuning
+First compute the stationary point for beta by calling optim_ObFn, then compute the ridge estimaor for m equally spaced tuning
 parameters and find the one minimize the objective function.
 }
 \examples{
 Test.case="gaussian"
-num.obs=100
-num.par=300
-k=0.0
+X=matrix(c(1:12),3,4)
+y=c(2,4,5)
 }
