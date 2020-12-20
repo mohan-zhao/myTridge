@@ -3,11 +3,11 @@
 \docType{data}
 \name{X_poi}
 \alias{X_poi}
-\title{matrix X sampled from a 30-dimensional normal distribution under poisson case
+\title{matrix X sampled from a 300-dimensional normal distribution under poisson case
 A dataset randomly generate the high dimensioanl matrix X}
 \format{
 \describe{get by calling TridgeEst function
-\item{X_poi}{input matrix,(10x30)}
+\item{X_poi}{input matrix,(100x300)}
 ...
 }
 }
@@ -15,7 +15,7 @@ A dataset randomly generate the high dimensioanl matrix X}
 X_poi
 }
 \description{
-matrix X sampled from a 30-dimensional normal distribution under poisson case
+matrix X sampled from a 300-dimensional normal distribution under poisson case
 A dataset randomly generate the high dimensioanl matrix X
 }
 \keyword{datasets}

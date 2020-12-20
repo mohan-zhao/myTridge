@@ -59,19 +59,27 @@ TridgeEst<-function(Test.case,X,y){
     tuning.parameters <- seq(r.min, r.max, length.out=length.tuning)
   }
   
+  init <- cv.glmnet(X, y, nfolds=10, alpha=0, family=Test.case)
+  init.estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=init$lambda.min)
+  init.vector <- as.vector(coef(init.estimation))[-1]
+  
   Ridge.estimators <- matrix(nrow=num.par, ncol=length.tuning)
   cost <- rep(0, length.tuning)
   for(tune in 1:length.tuning) {
     r <- tuning.parameters[tune]
-    estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=r)
-    
-    Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    if(Test.case=="gaussian"){
+      estimation <- glmnet(X, y, alpha=0, family=Test.case, lambda=r)
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    }else {
+      estimation <- optim_Ridge(init.vector,X,y,Test.case,r)
+      Ridge.estimators[, tune] <- estimation
+    }
     
     ####compute ObjectFunc value to find minimum
     estimator.r <- as.vector(Ridge.estimators[, tune])
     cost[tune] <- ObjectiveFunction(estimator.r,Test.case,y,X,TREX.c)
   }
   estimator <- Ridge.estimators[, which.min(cost)]
-   
+  
   return(estimator)
 }

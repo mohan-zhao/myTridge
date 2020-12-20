@@ -39,12 +39,12 @@ devtools::install_github("mohan-zhao/myTridge")
 
 This is a basic example which shows you how to solve a common problem:
 
-```{r}
+```{r,warning=FALSE}
 library(myTridge)
 devtools::load_all()
 ## Here "gaussian" is from three most common cases for the distribution F: Gaussian,Poisson, and Binomial.
 ### X and y are matrix and vector under gaussian distribution in data folder
-### dimension of X :10x30
+### dimension of X :100x300
 ### generate a tridge estimator
 TridgeEst(Test.case="gaussian",X=X_gau,y=y_gau)
 ```
@@ -52,10 +52,11 @@ TridgeEst(Test.case="gaussian",X=X_gau,y=y_gau)
 ```{r example}
 
 ### You can also use genDataList() function in this package to generate a high dimensional matrix X and y randomly then generate a tridge estimator
-list<-genDataList(n=100,mu=rep(0,300),p=300, rho=0.,beta=rnorm(300, mean = 0, sd = 1),SNR=10,Test_case="gaussian")
+list<-genDataList(n=100,mu=rep(0,300),p=300, rho=0.,beta=rnorm(300, mean = 0, sd = 1),SNR=10,Test_case="binomial")
 X<-list$normData
 y<-list$y
-myTridge::TridgeEst(Test.case="gaussian",X=X,y=y)
+myTridge::TridgeEst(Test.case="binomial",X=X,y=y)
+
 ```
 
 

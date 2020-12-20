@@ -7,7 +7,7 @@
 A dataset randomly generate the output vector}
 \format{
 \describe{get by calling TridgeEst function
-\item{y_bin}{input vector,dimension=10}
+\item{y_bin}{input vector,dimension=100}
 ...
 }
 }

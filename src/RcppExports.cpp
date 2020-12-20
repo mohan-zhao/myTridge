@@ -253,6 +253,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// optim_Ridge
+arma::vec optim_Ridge(arma::vec theta, arma::mat X, arma::vec y, const std::string Test_case, double r);
+RcppExport SEXP _myTridge_optim_Ridge(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP Test_caseSEXP, SEXP rSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
+    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
+    Rcpp::traits::input_parameter< double >::type r(rSEXP);
+    rcpp_result_gen = Rcpp::wrap(optim_Ridge(theta, X, y, Test_case, r));
+    return rcpp_result_gen;
+END_RCPP
+}
 // optim_ObFn
 arma::vec optim_ObFn(arma::vec theta, arma::mat X, arma::vec y, const std::string Test_case, double trex_c);
 RcppExport SEXP _myTridge_optim_ObFn(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP Test_caseSEXP, SEXP trex_cSEXP) {
@@ -303,6 +318,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_myTridge_Gradient", (DL_FUNC) &_myTridge_Gradient, 5},
     {"_myTridge_GradientLs", (DL_FUNC) &_myTridge_GradientLs, 4},
     {"_myTridge_optim_ObLs", (DL_FUNC) &_myTridge_optim_ObLs, 4},
+    {"_myTridge_optim_Ridge", (DL_FUNC) &_myTridge_optim_Ridge, 5},
     {"_myTridge_optim_ObFn", (DL_FUNC) &_myTridge_optim_ObFn, 5},
     {"_myTridge_RcppExport_registerCCallable", (DL_FUNC) &_myTridge_RcppExport_registerCCallable, 0},
     {NULL, NULL, 0}

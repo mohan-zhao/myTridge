@@ -1,9 +1,9 @@
-#' matrix X sampled from a 30-dimensional normal distribution under binomial case
+#' matrix X sampled from a 300-dimensional normal distribution under binomial case
 #' A dataset randomly generate the high dimensioanl matrix X 
 #'
 #' @format 
 #' \describe{get by calling TridgeEst function
-#'   \item{X_bin}{input matrix,(10x30)}
+#'   \item{X_bin}{input matrix,(100x300)}
 #'   ...
 #' }
 "X_bin"
@@ -13,7 +13,7 @@
 #'
 #' @format 
 #' \describe{get by calling TridgeEst function
-#'   \item{y_bin}{input vector,dimension=10}
+#'   \item{y_bin}{input vector,dimension=100}
 #'   ...
 #' }
 "y_bin"
@@ -28,12 +28,12 @@
 #' }
 "Test.case_bin"
 
-#' matrix X sampled from a 30-dimensional normal distribution under poisson case
+#' matrix X sampled from a 300-dimensional normal distribution under poisson case
 #' A dataset randomly generate the high dimensioanl matrix X 
 #'
 #' @format 
 #' \describe{get by calling TridgeEst function
-#'   \item{X_poi}{input matrix,(10x30)}
+#'   \item{X_poi}{input matrix,(100x300)}
 #'   ...
 #' }
 "X_poi"
@@ -43,7 +43,7 @@
 #'
 #' @format 
 #' \describe{get by calling TridgeEst function
-#'   \item{y_poi}{input vector,dimension=10}
+#'   \item{y_poi}{input vector,dimension=100}
 #'   ...
 #' }
 "y_poi"
@@ -58,12 +58,12 @@
 #' }
 "Test.case_poi"
 
-#' matrix X sampled from a 30-dimensional normal distribution
+#' matrix X sampled from a 300-dimensional normal distribution
 #' A dataset randomly generate the high dimensioanl matrix X 
 #'
 #' @format 
 #' \describe{get by calling TridgeEst function
-#'   \item{X_gau}{input matrix,(10x30)}
+#'   \item{X_gau}{input matrix,(100x300)}
 #'   ...
 #' }
 "X_gau"
@@ -73,7 +73,7 @@
 #'
 #' @format 
 #' \describe{get by calling TridgeEst function
-#'   \item{y_gau}{input vector,dimension=10}
+#'   \item{y_gau}{input vector,dimension=100}
 #'   ...
 #' }
 "y_gau"

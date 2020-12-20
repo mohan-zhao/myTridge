@@ -53,16 +53,18 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
   beta.error.CV10 <- rep(NA, num.runs)
   relative.beta.error.CV10 <- rep(NA, num.runs)
   
-  ratio <- rep(NA, num.runs)
   
-  mu <- rep(0, num.par)
-  beta <- stats::rnorm(num.par)
+  #mu <- rep(0, num.par)
+  #beta <- stats::rnorm(num.par)
   
   for (run in 1:num.runs){
-    #cat(sprintf("run %d out of %d runs\n", run, num.runs))
+    cat(sprintf("run %d out of %d runs\n", run, num.runs))
     #cat("  -> generate test case... ")
     #cat("  -> Normalize each column of the design matrix... ")
     
+    
+    mu <- rep(0, num.par)
+    beta <- stats::rnorm(num.par)
     
     ret <- genDataList(num.obs, mu, num.par,
                        k, beta, stn,Test.case)
@@ -109,6 +111,11 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
     relative.errors.TREX[run, ] <- errors.TREX[run, ] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
     relative.errors.CV10[run] <- errors.CV10[run] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
     
+    #cat('Relative Prediction error trex:')
+    #cat(relative.errors.TREX[run, ])
+    #cat('Relative Prediction error cv10:')
+    #cat(relative.errors.CV10[run])
+    
     # beta error
     for(trex.b.err in 1:length(TREX.c.vector)) {
       beta.error.TREX[run, trex.b.err] <- qnorm(2, (estimator - beta))
@@ -138,7 +145,7 @@ relativeError <-function(Test.case,num.obs,num.par,k,num.runs){
   }
   
   colnames(output.Data)<- c("Xbeta", "Beta", "r.Xbeta", "r.Beta")
-  cat("Simulation Results : \n")
+  #cat("Simulation Results : \n")
   
   output <- 
     matrix(c(round(output.Data[1, 3], 2),

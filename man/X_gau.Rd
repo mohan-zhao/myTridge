@@ -3,11 +3,11 @@
 \docType{data}
 \name{X_gau}
 \alias{X_gau}
-\title{matrix X sampled from a 30-dimensional normal distribution
+\title{matrix X sampled from a 300-dimensional normal distribution
 A dataset randomly generate the high dimensioanl matrix X}
 \format{
 \describe{get by calling TridgeEst function
-\item{X_gau}{input matrix,(10x30)}
+\item{X_gau}{input matrix,(100x300)}
 ...
 }
 }
@@ -15,7 +15,7 @@ A dataset randomly generate the high dimensioanl matrix X}
 X_gau
 }
 \description{
-matrix X sampled from a 30-dimensional normal distribution
+matrix X sampled from a 300-dimensional normal distribution
 A dataset randomly generate the high dimensioanl matrix X
 }
 \keyword{datasets}

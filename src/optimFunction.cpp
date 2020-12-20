@@ -149,6 +149,53 @@ arma::vec optim_ObLs(arma::vec theta,arma::mat X,arma::vec y,const std::string T
 }
 
 
+class ObRidge : public Functor {
+public:
+  ObRidge(const arma::mat &X,const arma::vec &y,const std::string & Test_case,const double &r) : X_(X),y_(y),Test_case_(Test_case),r_(r) {}
+  
+  double operator()(const arma::vec &theta) override {
+    if(Test_case_=="gaussian") {
+      arma::vec loss =y_ - X_ * theta;
+      double result =  pow(norm(loss, 2) , 2)- pow(norm(y_, 2) , 2) +r_*pow(norm(theta, 2) , 2);
+      return result;
+    } else {
+      double loss = sum(y_ % (X_ * theta) - bFunction(X_, theta,Test_case_));
+      double result = -loss+r_*pow(norm(theta, 2) , 2);
+      return result;
+    }
+  }
+  void Gradient(const arma::vec &theta, arma::vec &grad) override {
+    grad = theta;
+    if(Test_case_=="gaussian") {
+      arma::vec derivative = X_.t() * (y_ - X_ * theta);
+      arma::vec result = -2 * derivative + r_ * 2 *norm(theta, 2);
+      grad = result;
+    } else {
+      arma::vec tune_vector = ((y_ - MeanFunction(X_, theta,Test_case_)).t() * X_).t();
+      arma::vec result = -tune_vector + r_ * 2 *norm(theta, 2);
+      grad= result;
+    }
+  }
+  
+private:
+  arma::mat X_;
+  arma::vec y_;
+  std::string Test_case_;
+  double r_;
+};
+
+// [[Rcpp::export]]
+arma::vec optim_Ridge(arma::vec theta,arma::mat X,arma::vec y,const std::string Test_case,double r){
+  ObRidge dist3(X,y,Test_case,r);
+  Roptim<ObRidge> opt3("CG");
+  opt3.control.type = 1;
+  opt3.minimize(dist3, theta);
+  return theta;
+  
+}
+
+
+
 class ObFn : public Functor {
 public:
   ObFn(const arma::mat &X,const arma::vec &y,const std::string & Test_case,const double &trex_c) : X_(X),y_(y),Test_case_(Test_case),

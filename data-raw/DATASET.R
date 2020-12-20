@@ -1,10 +1,10 @@
 #' R Source code file for creating simulated dataset to be included in the myTridge package
-ret_gau<-genDataList(10, rep(0, 30), 30, 0.,
-            rnorm(30, mean = 0, sd = 1), 10,"gaussian")
-ret_bin<-genDataList(10, rep(0, 30), 30, 0.,
-                     rnorm(30, mean = 0, sd = 1), NA,"binomial")
-ret_poi<-genDataList(10, rep(0, 30), 30, 0.,
-                     rnorm(30, mean = 0, sd = 1), NA,"poisson")
+ret_gau<-genDataList(100, rep(0, 300), 300, 0.,
+            rnorm(300, mean = 0, sd = 1), 10,"gaussian")
+ret_bin<-genDataList(100, rep(0, 300), 300, 0.,
+                     rnorm(300, mean = 0, sd = 1), NA,"binomial")
+ret_poi<-genDataList(100, rep(0, 300), 300, 0.,
+                     rnorm(300, mean = 0, sd = 1), NA,"poisson")
 X_gau<-ret_gau$normData
 y_gau<-ret_gau$y
 Test.case_gau<-ret_gau$Test.case

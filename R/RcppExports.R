@@ -45,6 +45,10 @@ optim_ObLs <- function(theta, X, y, Test_case) {
     .Call(`_myTridge_optim_ObLs`, theta, X, y, Test_case)
 }
 
+optim_Ridge <- function(theta, X, y, Test_case, r) {
+    .Call(`_myTridge_optim_Ridge`, theta, X, y, Test_case, r)
+}
+
 optim_ObFn <- function(theta, X, y, Test_case, trex_c) {
     .Call(`_myTridge_optim_ObFn`, theta, X, y, Test_case, trex_c)
 }
