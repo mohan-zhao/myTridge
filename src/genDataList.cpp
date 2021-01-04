@@ -9,6 +9,12 @@ using namespace Rcpp;
 using namespace std;
 // [[Rcpp::interfaces(r, cpp)]]
 
+//' Generate a design matrix and normalize each column of the design matrix
+//' @param n number of rows of X
+//' @param mu a zero vector of length p where p is number of cols of X
+//' @param p number of columns of X
+//' @param rho where Σuv = rho to the power of |u−v|
+//' @export
 // [[Rcpp::export]]
 arma::mat mvrnormArma(const int n, arma::vec mu, const int p, const double rho) {
   
@@ -26,7 +32,9 @@ arma::mat mvrnormArma(const int n, arma::vec mu, const int p, const double rho) 
   
   return arma::repmat(mu, 1, n).t() + Y * arma::chol(sigma);
 }
-
+//' return a poisson distributed vector
+//' @param lambda a vector which is the mean of result vector
+//' @export
 // [[Rcpp::export]]
 arma::vec rpois_rcpp( arma::vec &lambda) {
   int n= lambda.n_elem;
@@ -39,7 +47,11 @@ arma::vec rpois_rcpp( arma::vec &lambda) {
   }
   return  as<arma::vec>(sim);
 }
-
+//' return a binomial distributed vector
+//' @param n number of rows of X
+//' @param size 1
+//' @param prob means of output vector
+//' @export
 // [[Rcpp::export]]
 arma::vec cpprbinom(int n, double size, arma::vec prob) {
   NumericVector v = no_init(n);
@@ -47,9 +59,21 @@ arma::vec cpprbinom(int n, double size, arma::vec prob) {
   return as<arma::vec>(v);
 }
 
+//' Generated X from a p-dimensional normal distribution with mean 0p and covariance matrix 
+//' and y = Xβ + ε 
+//' β is sampled i.i.d. from N (0, 1) and then projected onto the row space of X to ensure identifiability
+//'  
+//' @param n number of rows of X
+//' @param mu a zero vector of length p where p is number of cols of X
+//' @param p number of cols of X
+//' @param rho where Σuv = rho to the power of |u−v|
+//' @param beta β is sampled i.i.d. from N (0, 1) with length p
+//' @param SNR signal-to-noise ratio for, 10 for gaussian family case and NaN for poisson and binomial cases
+//' @param family three family cases: gaussian, poisson and binomial
+//' @export
 // [[Rcpp::export]]
 List genDataList(const int n, const arma::vec& mu, int p, double rho,
-                 arma::vec& beta, const double SNR,const std::string Test_case) {
+                 arma::vec& beta, const double SNR,const std::string family) {
   
   arma::mat U, V, data, normData, Projection;
   arma::vec s, y, means, noise;
@@ -59,12 +83,12 @@ List genDataList(const int n, const arma::vec& mu, int p, double rho,
   Projection = V * trans(V);
   beta = Projection * beta;
   
-  if(Test_case == "gaussian")
+  if(family == "gaussian")
   {
     means=normData * beta;
     y = means + arma::randn(n) * sqrt(arma::var(means) / SNR);
   }
-  else if (Test_case == "poisson")
+  else if (family == "poisson")
   {
     means=exp(normData * beta);
     y = rpois_rcpp(means);
@@ -80,7 +104,7 @@ List genDataList(const int n, const arma::vec& mu, int p, double rho,
   ret["normData"] = normData;
   ret["beta"] = beta;
   ret["y"] = y;
-  ret["Test.case"]=Test_case;
+  ret["family"]=family;
   return ret;
   
 }

@@ -4,10 +4,20 @@
 \alias{relativeError}
 \title{relative error table}
 \usage{
-relativeError(Test.case, num.obs, num.par, k, num.runs)
+relativeError(
+  family = c("gaussian", "binomial", "poisson"),
+  num.obs,
+  num.par,
+  k,
+  num.runs,
+  stn = 10,
+  nfolds = 10,
+  alpha = 0
+)
 }
 \arguments{
-\item{Test.case}{three different function distributions}
+\item{family}{Response type, should be a character string representing one of the built-in
+families \code{family="gaussian"}, \code{family="poisson"} and \code{family="binomial"}}
 
 \item{num.obs}{num of rows of the matrix X}
 
@@ -16,6 +26,14 @@ relativeError(Test.case, num.obs, num.par, k, num.runs)
 \item{k}{magnitude of the mutual correlations}
 
 \item{num.runs}{num of runs to estimate and compute error}
+
+\item{stn}{signal-to-noise ratio. Only useful for the \code{"gaussian"} family such that
+entries of the noise vector ε are sampled i.i.d. from N (0, stn, default is 10.}
+
+\item{nfolds}{number of folds for comparsion between cross-validation estimator
+error and t-ridge estimator error,default is 10}
+
+\item{alpha}{the elastic-net mixing parameter α, default is 0 the ridge penalty. Alpha=1 is the lasso penalty}
 }
 \value{
 a table showing the errors for different methods
@@ -27,7 +45,7 @@ compare errors of estimator for tridge with MLE or 10 fold CV
 call TridgeEst to computer the t-ridge estimator then compare the relative errors
 }
 \examples{
-Test.case="gaussian"
+family="gaussian"
 num.obs=100
 num.par=300
 k=0.0

@@ -117,8 +117,8 @@ RcppExport SEXP _myTridge_cpprbinom(SEXP nSEXP, SEXP sizeSEXP, SEXP probSEXP) {
     return rcpp_result_gen;
 }
 // genDataList
-List genDataList(const int n, const arma::vec& mu, int p, double rho, arma::vec& beta, const double SNR, const std::string Test_case);
-static SEXP _myTridge_genDataList_try(SEXP nSEXP, SEXP muSEXP, SEXP pSEXP, SEXP rhoSEXP, SEXP betaSEXP, SEXP SNRSEXP, SEXP Test_caseSEXP) {
+List genDataList(const int n, const arma::vec& mu, int p, double rho, arma::vec& beta, const double SNR, const std::string family);
+static SEXP _myTridge_genDataList_try(SEXP nSEXP, SEXP muSEXP, SEXP pSEXP, SEXP rhoSEXP, SEXP betaSEXP, SEXP SNRSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< const int >::type n(nSEXP);
@@ -127,16 +127,16 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type rho(rhoSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< const double >::type SNR(SNRSEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
-    rcpp_result_gen = Rcpp::wrap(genDataList(n, mu, p, rho, beta, SNR, Test_case));
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
+    rcpp_result_gen = Rcpp::wrap(genDataList(n, mu, p, rho, beta, SNR, family));
     return rcpp_result_gen;
 END_RCPP_RETURN_ERROR
 }
-RcppExport SEXP _myTridge_genDataList(SEXP nSEXP, SEXP muSEXP, SEXP pSEXP, SEXP rhoSEXP, SEXP betaSEXP, SEXP SNRSEXP, SEXP Test_caseSEXP) {
+RcppExport SEXP _myTridge_genDataList(SEXP nSEXP, SEXP muSEXP, SEXP pSEXP, SEXP rhoSEXP, SEXP betaSEXP, SEXP SNRSEXP, SEXP familySEXP) {
     SEXP rcpp_result_gen;
     {
         Rcpp::RNGScope rcpp_rngScope_gen;
-        rcpp_result_gen = PROTECT(_myTridge_genDataList_try(nSEXP, muSEXP, pSEXP, rhoSEXP, betaSEXP, SNRSEXP, Test_caseSEXP));
+        rcpp_result_gen = PROTECT(_myTridge_genDataList_try(nSEXP, muSEXP, pSEXP, rhoSEXP, betaSEXP, SNRSEXP, familySEXP));
     }
     Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
     if (rcpp_isInterrupt_gen) {
@@ -157,129 +157,129 @@ RcppExport SEXP _myTridge_genDataList(SEXP nSEXP, SEXP muSEXP, SEXP pSEXP, SEXP 
     return rcpp_result_gen;
 }
 // bFunction
-arma::vec bFunction(arma::mat X, arma::vec theta, const std::string Test_case);
-RcppExport SEXP _myTridge_bFunction(SEXP XSEXP, SEXP thetaSEXP, SEXP Test_caseSEXP) {
+arma::vec bFunction(arma::mat X, arma::vec theta, const std::string family);
+RcppExport SEXP _myTridge_bFunction(SEXP XSEXP, SEXP thetaSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
-    rcpp_result_gen = Rcpp::wrap(bFunction(X, theta, Test_case));
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
+    rcpp_result_gen = Rcpp::wrap(bFunction(X, theta, family));
     return rcpp_result_gen;
 END_RCPP
 }
 // MeanFunction
-arma::vec MeanFunction(arma::mat X, arma::vec theta, const std::string Test_case);
-RcppExport SEXP _myTridge_MeanFunction(SEXP XSEXP, SEXP thetaSEXP, SEXP Test_caseSEXP) {
+arma::vec MeanFunction(arma::mat X, arma::vec theta, const std::string family);
+RcppExport SEXP _myTridge_MeanFunction(SEXP XSEXP, SEXP thetaSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
-    rcpp_result_gen = Rcpp::wrap(MeanFunction(X, theta, Test_case));
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
+    rcpp_result_gen = Rcpp::wrap(MeanFunction(X, theta, family));
     return rcpp_result_gen;
 END_RCPP
 }
 // MeanPrime
-arma::vec MeanPrime(arma::mat X, arma::vec theta, const std::string Test_case);
-RcppExport SEXP _myTridge_MeanPrime(SEXP XSEXP, SEXP thetaSEXP, SEXP Test_caseSEXP) {
+arma::vec MeanPrime(arma::mat X, arma::vec theta, const std::string family);
+RcppExport SEXP _myTridge_MeanPrime(SEXP XSEXP, SEXP thetaSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
-    rcpp_result_gen = Rcpp::wrap(MeanPrime(X, theta, Test_case));
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
+    rcpp_result_gen = Rcpp::wrap(MeanPrime(X, theta, family));
     return rcpp_result_gen;
 END_RCPP
 }
 // ObjectiveFunction
-double ObjectiveFunction(arma::vec theta, const std::string Test_case, arma::vec y, arma::mat X, double trex_c);
-RcppExport SEXP _myTridge_ObjectiveFunction(SEXP thetaSEXP, SEXP Test_caseSEXP, SEXP ySEXP, SEXP XSEXP, SEXP trex_cSEXP) {
+double ObjectiveFunction(arma::vec theta, const std::string family, arma::vec y, arma::mat X, double trex_c);
+RcppExport SEXP _myTridge_ObjectiveFunction(SEXP thetaSEXP, SEXP familySEXP, SEXP ySEXP, SEXP XSEXP, SEXP trex_cSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< double >::type trex_c(trex_cSEXP);
-    rcpp_result_gen = Rcpp::wrap(ObjectiveFunction(theta, Test_case, y, X, trex_c));
+    rcpp_result_gen = Rcpp::wrap(ObjectiveFunction(theta, family, y, X, trex_c));
     return rcpp_result_gen;
 END_RCPP
 }
 // Gradient
-arma::vec Gradient(arma::vec theta, const std::string Test_case, arma::vec y, arma::mat X, double trex_c);
-RcppExport SEXP _myTridge_Gradient(SEXP thetaSEXP, SEXP Test_caseSEXP, SEXP ySEXP, SEXP XSEXP, SEXP trex_cSEXP) {
+arma::vec Gradient(arma::vec theta, const std::string family, arma::vec y, arma::mat X, double trex_c);
+RcppExport SEXP _myTridge_Gradient(SEXP thetaSEXP, SEXP familySEXP, SEXP ySEXP, SEXP XSEXP, SEXP trex_cSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< double >::type trex_c(trex_cSEXP);
-    rcpp_result_gen = Rcpp::wrap(Gradient(theta, Test_case, y, X, trex_c));
+    rcpp_result_gen = Rcpp::wrap(Gradient(theta, family, y, X, trex_c));
     return rcpp_result_gen;
 END_RCPP
 }
 // GradientLs
-arma::vec GradientLs(arma::vec theta, arma::mat X, arma::vec y, const std::string Test_case);
-RcppExport SEXP _myTridge_GradientLs(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP Test_caseSEXP) {
+arma::vec GradientLs(arma::vec theta, arma::mat X, arma::vec y, const std::string family);
+RcppExport SEXP _myTridge_GradientLs(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
-    rcpp_result_gen = Rcpp::wrap(GradientLs(theta, X, y, Test_case));
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
+    rcpp_result_gen = Rcpp::wrap(GradientLs(theta, X, y, family));
     return rcpp_result_gen;
 END_RCPP
 }
 // optim_ObLs
-arma::vec optim_ObLs(arma::vec theta, arma::mat X, arma::vec y, const std::string Test_case);
-RcppExport SEXP _myTridge_optim_ObLs(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP Test_caseSEXP) {
+arma::vec optim_ObLs(arma::vec theta, arma::mat X, arma::vec y, const std::string family);
+RcppExport SEXP _myTridge_optim_ObLs(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
-    rcpp_result_gen = Rcpp::wrap(optim_ObLs(theta, X, y, Test_case));
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
+    rcpp_result_gen = Rcpp::wrap(optim_ObLs(theta, X, y, family));
     return rcpp_result_gen;
 END_RCPP
 }
 // optim_Ridge
-arma::vec optim_Ridge(arma::vec theta, arma::mat X, arma::vec y, const std::string Test_case, double r);
-RcppExport SEXP _myTridge_optim_Ridge(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP Test_caseSEXP, SEXP rSEXP) {
+arma::vec optim_Ridge(arma::vec theta, arma::mat X, arma::vec y, const std::string family, double r);
+RcppExport SEXP _myTridge_optim_Ridge(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP rSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
     Rcpp::traits::input_parameter< double >::type r(rSEXP);
-    rcpp_result_gen = Rcpp::wrap(optim_Ridge(theta, X, y, Test_case, r));
+    rcpp_result_gen = Rcpp::wrap(optim_Ridge(theta, X, y, family, r));
     return rcpp_result_gen;
 END_RCPP
 }
 // optim_ObFn
-arma::vec optim_ObFn(arma::vec theta, arma::mat X, arma::vec y, const std::string Test_case, double trex_c);
-RcppExport SEXP _myTridge_optim_ObFn(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP Test_caseSEXP, SEXP trex_cSEXP) {
+arma::vec optim_ObFn(arma::vec theta, arma::mat X, arma::vec y, const std::string family, double trex_c);
+RcppExport SEXP _myTridge_optim_ObFn(SEXP thetaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP trex_cSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
-    Rcpp::traits::input_parameter< const std::string >::type Test_case(Test_caseSEXP);
+    Rcpp::traits::input_parameter< const std::string >::type family(familySEXP);
     Rcpp::traits::input_parameter< double >::type trex_c(trex_cSEXP);
-    rcpp_result_gen = Rcpp::wrap(optim_ObFn(theta, X, y, Test_case, trex_c));
+    rcpp_result_gen = Rcpp::wrap(optim_ObFn(theta, X, y, family, trex_c));
     return rcpp_result_gen;
 END_RCPP
 }

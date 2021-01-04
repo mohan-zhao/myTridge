@@ -4,11 +4,11 @@ context("run TridgeEst with example input ")
 ### X_gau and y_gau are data for "gaussian"
 ### X_bin and y_bin are data for "binomial"
 ### X_poi and y_poi are data for "poisson"
-estimator1 <- try(TridgeEst("gaussian",X_gau,y_gau),
+estimator1 <- try(TridgeEst(X_gau,y_gau,"gaussian"),
            silent = TRUE)
-estimator2 <- try(TridgeEst("poisson",X_poi,y_poi),
+estimator2 <- try(TridgeEst(X_poi,y_poi,"poisson"),
                   silent = TRUE)
-estimator3 <- try(TridgeEst("binomial",X_bin,y_bin),
+estimator3 <- try(TridgeEst(X_bin,y_bin,"binomial"),
                   silent = TRUE)
 
 test_that("no error regarding the output type in TridgeEst for the input", {

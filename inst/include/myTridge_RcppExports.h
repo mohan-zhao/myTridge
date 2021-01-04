@@ -88,7 +88,7 @@ namespace myTridge {
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
-    inline List genDataList(const int n, const arma::vec& mu, int p, double rho, arma::vec& beta, const double SNR, const std::string Test_case) {
+    inline List genDataList(const int n, const arma::vec& mu, int p, double rho, arma::vec& beta, const double SNR, const std::string family) {
         typedef SEXP(*Ptr_genDataList)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
         static Ptr_genDataList p_genDataList = NULL;
         if (p_genDataList == NULL) {
@@ -98,7 +98,7 @@ namespace myTridge {
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_genDataList(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(p)), Shield<SEXP>(Rcpp::wrap(rho)), Shield<SEXP>(Rcpp::wrap(beta)), Shield<SEXP>(Rcpp::wrap(SNR)), Shield<SEXP>(Rcpp::wrap(Test_case)));
+            rcpp_result_gen = p_genDataList(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(p)), Shield<SEXP>(Rcpp::wrap(rho)), Shield<SEXP>(Rcpp::wrap(beta)), Shield<SEXP>(Rcpp::wrap(SNR)), Shield<SEXP>(Rcpp::wrap(family)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();

@@ -4,14 +4,39 @@
 \alias{TridgeEst}
 \title{Tridge Estimator}
 \usage{
-TridgeEst(Test.case, X, y)
+TridgeEst(
+  X,
+  y,
+  family = c("gaussian", "binomial", "poisson"),
+  nlambda = 1000,
+  lambda.min.limit = 0.05,
+  c = 0.1,
+  nfolds = 10,
+  alpha = 0,
+  stn = 10
+)
 }
 \arguments{
-\item{Test.case}{three different function distributions}
+\item{X}{input matrix, of dimension nobs x nvars; each row is an observation
+vector.}
 
-\item{X}{matrix with num.obs x num.par dimension}
+\item{y}{response variable, num.obs elements}
 
-\item{y}{vector, num.obs elements}
+\item{family}{Response type, should be a character string representing one of the built-in
+families \code{family="gaussian"}, \code{family="poisson"} and \code{family="binomial"}}
+
+\item{nlambda}{The number of tuning parameters - default is 1000.}
+
+\item{lambda.min.limit}{the smallest possible value for lambda}
+
+\item{c}{a constant such that lambda.min = max(lambda.min.limit, (lambda.max - 2*c))}
+
+\item{nfolds}{number of folds - default is 10}
+
+\item{alpha}{the elastic-net mixing parameter α, default is 0 the ridge penalty. Alpha=1 is the lasso penalty}
+
+\item{stn}{signal-to-noise ratio. Only useful for the \code{"gaussian"} family such that entries of the noise vector ε are sampled i.i.d. from N (0, stn,
+default is 10.}
 }
 \value{
 tridge estimator vector
@@ -24,7 +49,12 @@ First compute the stationary point for beta by calling optim_ObFn, then compute 
 parameters and find the one minimize the objective function.
 }
 \examples{
-Test.case="gaussian"
-X=matrix(c(1:12),3,4)
-y=c(2,4,5)
+X = matrix(rnorm(20 * 100), 20, 100)
+y = rnorm(20)
+family = 'gaussian'
+nlambda=1000
+lambda.min.limit=0.05
+c=0.1
+nfolds=10
+alpha=0
 }
