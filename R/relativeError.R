@@ -91,23 +91,23 @@ relativeError <-function(family=c("gaussian","binomial","poisson"),num.obs,num.p
     ##### Compute the prediction errors 
     cat("  -> compute errors... ")
     for(trex.err in 1:length(TREX.c.vector)) {
-      errors.TREX[run, trex.err] <- qnorm(2, abs(X %*% (estimator - beta))) / sqrt(num.obs)
+      errors.TREX[run, trex.err] <- Lqnorm(2, abs(X %*% (estimator - beta))) / sqrt(num.obs)
     }
-    errors.CV[run] <-qnorm(2, abs(X %*% (CV.estimator - beta))) / sqrt(num.obs) 
+    errors.CV[run] <-Lqnorm(2, abs(X %*% (CV.estimator - beta))) / sqrt(num.obs) 
     
     #Relative Prediction error
-    relative.errors.TREX[run, ] <- errors.TREX[run, ] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
-    relative.errors.CV[run] <- errors.CV[run] / qnorm(2, (X %*% beta)) * sqrt(num.obs)
+    relative.errors.TREX[run, ] <- errors.TREX[run, ] / Lqnorm(2, (X %*% beta)) * sqrt(num.obs)
+    relative.errors.CV[run] <- errors.CV[run] / Lqnorm(2, (X %*% beta)) * sqrt(num.obs)
   
     # beta error
     for(trex.b.err in 1:length(TREX.c.vector)) {
-      beta.error.TREX[run, trex.b.err] <- qnorm(2, (estimator - beta))
+      beta.error.TREX[run, trex.b.err] <- Lqnorm(2, (estimator - beta))
     }
-    beta.error.CV[run] <- qnorm(2, (CV.estimator - beta))
+    beta.error.CV[run] <- Lqnorm(2, (CV.estimator - beta))
     
     #relative beta error
-    relative.beta.error.TREX[run, ] <- beta.error.TREX[run, ] / qnorm(2, beta)
-    relative.beta.error.CV[run] <- beta.error.CV[run] / qnorm(2, beta)
+    relative.beta.error.TREX[run, ] <- beta.error.TREX[run, ] / Lqnorm(2, beta)
+    relative.beta.error.CV[run] <- beta.error.CV[run] / Lqnorm(2, beta)
     #cat("done\n")
   }
   ##### Output results

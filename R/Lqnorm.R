@@ -1,4 +1,4 @@
-#' @title qnorm function
+#' @title Lqnorm function
 #' @description generate q's norm of a vector 
 #' @param q integer 
 #' @param v vector
@@ -6,10 +6,10 @@
 #' @details q-norm (also called lq-norm)
 #' @examples 
 #' when q=2, it's called Euclidean norm
-#' @rdname qnorm
+#' @rdname Lqnorm
 #' @export
 #' 
 #'   
-qnorm <- function(q, v){
+Lqnorm <- function(q, v){
   return((sum(abs(v) ^ q)) ^ (1 / q))
 }

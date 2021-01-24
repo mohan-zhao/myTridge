@@ -59,7 +59,7 @@ TridgeEst<-function(X,y,family=c("gaussian","binomial","poisson"),nlambda=1000,l
     
   }
   
-  edr.lambda <- qnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * qnorm(2, GlmTrex.estimators))
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
   r.max <- edr.lambda + c
   r.min <- max(lambda.min.limit, (edr.lambda - c))
   if(r.min == Inf || r.max == Inf ) {
