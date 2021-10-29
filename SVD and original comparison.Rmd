@@ -1,0 +1,980 @@
+---
+title: ''
+author: "Mohan Zhao"
+date: "06/06/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(myTridge)
+library(glmnet)
+library(rsvd)
+pacman::p_load_gh("r-lib/bench")
+library(profvis)
+```
+# Overview
+
+To see if replacing `glmnet` method with SVD in the ridge regression works and can improve the speed. We first start with `gaussian` family case.
+
+
+# Original tridge implementation in our package
+
+This version of `TridgeEst` uses `glmnet` method to find the beta estimator.
+
+```{r}
+TridgeEst1<-function(X,y,family=c("gaussian","binomial","poisson"),type=c("glmnet","X_R","R_R"),nlambda=1000,lambda.min.limit=0.05,c=0.1,nfolds=10,alpha=0,stn=10){
+  family=match.arg(family)
+  type=match.arg(type)
+  if(family=="gaussian") {
+    TREX.c.vector <- 2 
+  } else {
+    TREX.c.vector <- 1
+  }
+  num.obs <- nrow(X)
+  num.par <- ncol(X)
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  if(family == "gaussian") {
+    stn <- stn # signal-to-noise ratio
+  }else{
+    stn <- NA
+  }
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+  
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+  if(type=="glmnet"){
+    init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha, family=family)
+    init.estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=init$lambda.min)
+    init.vector <- as.vector(coef(init.estimation))[-1]
+  }else if(type=="X_R"){
+    svd<-rsvd(X)
+    v<-svd$v
+    d<-svd$d
+    u<-svd$u
+    d<-diag(d)
+    R<-u%*%d
+    init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha, family=family)
+    init.estimation <- glmnet(R, y, alpha=alpha, family=family, lambda=init$lambda.min)
+    init.vector <- as.vector(coef(init.estimation))[-1]
+    init.vector <- v%*%init.vector
+  }else{
+    svd<-rsvd(X)
+    v<-svd$v
+    d<-svd$d
+    u<-svd$u
+    d<-diag(d)
+    R<-u%*%d
+    init <- cv.glmnet(R, y, nfolds=nfolds, alpha=alpha, family=family)
+    init.estimation <- glmnet(R, y, alpha=alpha, family=family, lambda=init$lambda.min)
+    init.vector <- as.vector(coef(init.estimation))[-1]
+    init.vector <- v%*%init.vector
+  }
+    
+  for(tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+    if(family=="gaussian"){
+      estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=r)
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    }else {
+  
+      estimation <- optim_Ridge(init.vector,X,y,family,r)
+      Ridge.estimators[, tune] <- estimation
+    }
+    
+    ####compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- ObjectiveFunction(estimator.r,family,y,X,TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+  
+  return(estimator)
+}
+```
+
+
+```{r}
+TridgeEst_glmnet1<-function(X,y,family=c("binomial","poisson"),nlambda=1000,lambda.min.limit=0.05,c=0.1,nfolds=10,alpha=0,stn=10){
+  family=match.arg(family)
+  
+  
+  TREX.c.vector <- 1
+  
+  num.obs <- 100
+  num.par <- 300
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  
+  stn <- NA
+  
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+ 
+  init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha, family=family)
+  init.estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=init$lambda.min)
+  init.vector <- as.vector(coef(init.estimation))[-1]
+  
+    
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+
+  for(tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+   
+    estimation <- optim_Ridge(init.vector,X,y,family,r)
+    Ridge.estimators[, tune] <- estimation
+    
+    
+    ####compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- ObjectiveFunction(estimator.r,family,y,X,TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+  
+  return(estimator)
+}
+```
+
+```{r}
+TridgeEst_glmnet2<-function(X,y,family=c("binomial","poisson"),nlambda=1000,lambda.min.limit=0.05,c=0.1,nfolds=10,alpha=0,stn=10){
+  family=match.arg(family)
+  
+  
+  TREX.c.vector <- 1
+  
+  num.obs <- 100
+  num.par <- 300
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  
+  stn <- NA
+  
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+ 
+  init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha, family=family)
+  init.estimation <- glmnet_binomial(init$lambda.min,rep(0,num.par),X,y,num.obs)
+    
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+
+  for(tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+   
+    estimation <- optim_Ridge(init.vector,X,y,family,r)
+    Ridge.estimators[, tune] <- estimation
+    
+    
+    ####compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- ObjectiveFunction(estimator.r,family,y,X,TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+  
+  return(estimator)
+}
+```
+
+# New version of TridgeEst using rsvd, svd and woodbury in R
+```{r}
+TridgeEst_new<-function(X,y,family=c("gaussian","binomial","poisson"),type=c("rsvd","svd","woodbury"),nlambda=1000,lambda.min.limit=0.05,c=0.1,nfolds=10,alpha=0,stn=10){
+  family=match.arg(family)
+  type=match.arg(type)
+  
+  if(family=="gaussian") {
+    TREX.c.vector <- 2 
+  } else {
+    TREX.c.vector <- 1
+  }
+  num.obs <- nrow(X)
+  num.par <- ncol(X)
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  if(family == "gaussian") {
+    stn <- stn # signal-to-noise ratio
+  }else{
+    stn <- NA
+  }
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+  if(family!="gaussian"){
+     init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha, family=family)
+     init.estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=init$lambda.min)
+     init.vector <- as.vector(coef(init.estimation))[-1]
+  }
+    if(type=="rsvd"){
+    X_new<-cbind(rep(1,num.obs),X)
+    svd<-rsvd(X_new)
+    v<-svd$v
+    d<-svd$d
+    u<-svd$u
+    d<-diag(d)
+    R<-u%*%d
+    RTR <- crossprod(R) 
+    IN <- diag(num.obs) # NxN identity matrix
+    RTY <- crossprod(R,y) 
+  }else if(type=="svd"){
+    X_new<-cbind(rep(1,num.obs),X)
+    svd<-base::svd(X_new)
+    v<-svd$v
+    d<-svd$d
+    u<-svd$u
+    d<-diag(d)
+    R<-u%*%d
+    RTR <- crossprod(R) 
+    IN <- diag(num.obs) # NxN identity matrix
+    RTY <- crossprod(R,y) 
+  }else{
+    X_new<-cbind(rep(1,num.obs),X)
+    XXT <- tcrossprod(X_new)
+    XTY <- crossprod(X_new,y)
+    IN <- diag(num.obs) # NxN identity matrix
+    XXTY <- XXT %*% y
+  }
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+
+  for(tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+    if(family=="gaussian"){
+      if(type=="rsvd" ||type=="svd"){
+        estimation<-solve(RTR + r*IN)%*%RTY
+        estimation<-v %*% estimation
+        Ridge.estimators[, tune] <- estimation[-1]
+      }else{
+        estimation<-XTY/r - crossprod(X_new, solve(IN + XXT/r) %*% XXTY) / r^2 
+        Ridge.estimators[, tune] <- estimation[-1]
+      }
+      
+    }else {
+      estimation <- optim_Ridge(init.vector,X,y,family,r)
+      Ridge.estimators[, tune] <- estimation
+    }
+    
+    ####compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- ObjectiveFunction(estimator.r,family,y,X,TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+  
+  return(estimator)
+}
+```
+
+# New version of TridgeEst using rsvd, svd and woodbury in Rcpp
+```{r}
+TridgeEst_new1<-function(X,y,family=c("gaussian","binomial","poisson"),type=c("rsvd","svd","woodbury"),nlambda=1000,lambda.min.limit=0.05,c=0.1,nfolds=10,alpha=0,stn=10){
+  family=match.arg(family)
+  type=match.arg(type)
+  
+  if(family=="gaussian") {
+    TREX.c.vector <- 2 
+  } else {
+    TREX.c.vector <- 1
+  }
+  num.obs <- nrow(X)
+  num.par <- ncol(X)
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  if(family == "gaussian") {
+    stn <- stn # signal-to-noise ratio
+  }else{
+    stn <- NA
+  }
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+  if(family!="gaussian"){
+    init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha, family=family)
+    init.estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=init$lambda.min)
+    init.vector <- as.vector(coef(init.estimation))[-1]
+  }
+  if(type=="rsvd"){
+    svd<-rsvd(X)
+    v<-svd$v
+    d<-svd$d
+    u<-svd$u
+    d<-diag(d)
+  }else if(type=="svd"){
+    svd<-base::svd(X)
+    v<-svd$v
+    d<-svd$d
+    u<-svd$u
+    d<-diag(d)
+  }else{
+  }
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+  
+  estimator <-Ridgefunction(TREX.c,Ridge.estimators,cost,init.vector,tuning.parameters,nlambda,num.obs,num.par,u,d,v,X,y,family,type)
+  return(estimator)
+}
+```
+
+### New version of TridgeEst by replacing X with R for poisson and binomial cases
+
+
+```{r}
+TridgeEst_new2<-function(X,y,family=c("gaussian","binomial","poisson"),type=c("rsvd","svd"),nlambda=1000,lambda.min.limit=0.05,c=0.1,nfolds=10,alpha=0,stn=10){
+  family=match.arg(family)
+  type=match.arg(type)
+  if(family=="gaussian") {
+    TREX.c.vector <- 2 
+  } else {
+    TREX.c.vector <- 1
+  }
+  num.obs <- nrow(X)
+  num.par <- ncol(X)
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  if(family == "gaussian") {
+    stn <- stn # signal-to-noise ratio
+  }else{
+    stn <- NA
+  }
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+  
+ 
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+  #X_new<-cbind(rep(1,num.obs),X)
+  if(type=="rsvd"){
+    svd<-rsvd(X)
+  }else{
+    svd<-base::svd(X)
+  }
+  v<-svd$v
+  d<-svd$d
+  u<-svd$u
+  d<-diag(d)
+  R<-u%*%d
+  init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha,   family=family)
+  init.estimation <- glmnet(R, y, alpha=alpha, family=family, lambda=init$lambda.min)
+  init.vector <- as.vector(coef(init.estimation))[-1]
+  init.vector <-matrixTimesTheta(v,init.vector)
+  for(tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+    if(family=="gaussian"){
+      estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=r)
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    }else {
+      estimation <- optim_Ridge(init.vector,X,y,family,r)
+      Ridge.estimators[, tune] <- estimation
+    }
+    
+    ####compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- ObjectiveFunction(estimator.r,family,y,X,TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+  
+  return(estimator)
+}
+```
+
+
+# Time and memory allocation for original method using glmnet and new versions using rsvd, svd and woodbury in r and Rcpp.
+```{r}
+normData<-genDataList(100, rep(0, 300), 300, 0.,
+            rnorm(300, mean = 0, sd = 1), 10,"binomial")
+X<-normData$data
+y<-normData$y
+family<-"binomial"
+bench::mark(
+        glmnet_r=TridgeEst_glmnet1(X,y,"binomial"),
+        glmnet_c=TridgeEst_glmnet2(X,y,"binomial"),
+        check = FALSE,
+        relative = FALSE
+      )
+bench::mark(
+        original_glmnet=TridgeEst1(X,y,family),
+        rsvd=TridgeEst2(X,y,family),
+        check = FALSE,
+        relative = FALSE
+      )
+init <- cv.glmnet(X, y, nfolds=10, alpha=0,family=family)
+profvis({
+  svd<-rsvd(X)
+  v<-svd$v
+  d<-svd$d
+  u<-svd$u
+  d<-diag(d)
+  R<-u%*%d
+  init <- cv.glmnet(X, y, nfolds=10, alpha=0,family=family)
+  init.estimation<-glmnet(R, y, alpha=0, family=family, lambda=init$lambda.min)
+  init.vector<-as.vector(coef(init.estimation))[-1]
+  init.vector<-v%*%init.vector
+})
+svd<-rsvd(X)
+v<-svd$v
+d<-svd$d
+u<-svd$u
+d<-diag(d)
+R<-u%*%d
+bench::mark(
+        glmnet=glmnet(X, y, alpha=0, family=family, lambda=init$lambda.min),
+        svd=new_svd(),
+        svd_c=new_svd1(),
+        check = FALSE,
+        relative = FALSE
+      )
+```
+## profvis step by step
+
+```{r}
+profvis({
+family="poisson"
+type="rsvd"
+nlambda=1000
+lambda.min.limit=0.05
+c=0.1
+nfolds=10
+alpha=0
+stn=10
+
+if(family=="gaussian") {
+    TREX.c.vector <- 2 
+  } else {
+    TREX.c.vector <- 1
+  }
+  num.obs <- nrow(X)
+  num.par <- ncol(X)
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  if(family == "gaussian") {
+    stn <- stn # signal-to-noise ratio
+  }else{
+    stn <- NA
+  }
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+  
+ 
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+  #X_new<-cbind(rep(1,num.obs),X)
+  if(type=="rsvd"){
+    svd<-rsvd(X)
+  }else{
+    svd<-base::svd(X)
+  }
+  v<-svd$v
+  d<-svd$d
+  u<-svd$u
+  d<-diag(d)
+  R<-u%*%d
+  init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha,   family=family)
+  init.estimation <- glmnet(R, y, alpha=alpha, family=family, lambda=init$lambda.min)
+  init.vector <- as.vector(coef(init.estimation))[-1]
+  init.vector <-matrixTimesTheta(v,init.vector)
+  for(tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+    if(family=="gaussian"){
+      estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=r)
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    }else {
+      estimation <- optim_Ridge(init.vector,X,y,family,r)
+      Ridge.estimators[, tune] <- estimation
+    }
+    
+    ####compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- ObjectiveFunction(estimator.r,family,y,X,TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+})
+```
+
+## from timing comparison
+```{r}
+TridgeEst_init <- function(X,y,family=c("gaussian","binomial","poisson"),init.vector=c("zero","random","glmnet"),nlambda=1000,lambda.min.limit=0.05,c=0.1,nfolds=10,alpha=0,stn=10) {
+  
+  family <- match.arg(family)
+  init.vector <- match.arg(init.vector)
+  num.par<-ncol(X)
+  num.obs<-nrow(X)
+  TREX.c.vector<-1
+  ### compute T-ridge estimators
+  par0 <- rep(0, num.par)
+  par1 <- myTridge::optim_ObLs(par0, X, y, family)
+
+  GlmTrex.estimators <- matrix(nrow = num.par, ncol = length(TREX.c.vector))
+  for (trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ### find the stationary point
+    GlmTrex.estimation <- myTridge::optim_ObFn(par1, X, y, family, TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+  }
+
+  # lambda sequence
+  edr.lambda <- myTridge::Lqnorm(2, myTridge::GradientLs(GlmTrex.estimators, X, y, family)) / (2 * myTridge::Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if (r.min == Inf || r.max == Inf) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out = nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out = nlambda)
+  }
+  
+  # initialization
+  if (init.vector == "zero") {
+    init.vector <- rep(0, num.par)
+  } else if (init.vector == "random") {
+    init.vector <- rnorm(num.par, mean = 0, sd = 1)
+  } else if (init.vector == "glmnet") {
+    if (family != "gaussian") {
+      init <- glmnet::cv.glmnet(X, y, nfolds = nfolds, alpha = alpha, family = family,parallel = FALSE, foldid = rep(seq(1, nfolds), each = num.obs/nfolds))
+      init.estimation <- glmnet::glmnet(X, y, alpha = alpha, family = family, lambda = init$lambda.min)
+      init.vector <- as.vector(coef(init.estimation))[-1]
+    }
+  }
+
+  Ridge.estimators <- matrix(nrow = num.par, ncol = nlambda)
+  cost <- rep(0, nlambda)
+  for (tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+    if (family == "gaussian") {
+      estimation <- glmnet::glmnet(X, y, alpha = alpha, family = family, lambda = r)
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    } else {
+      estimation <- myTridge::optim_Ridge(init.vector, X, y, family, r)
+      Ridge.estimators[, tune] <- estimation
+    }
+
+    #### compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- myTridge::ObjectiveFunction(estimator.r, family, y, X, TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+
+  return(estimator)
+}
+```
+
+
+
+```{r}
+profvis({
+family="poisson"
+type="rsvd"
+nlambda=1000
+lambda.min.limit=0.05
+c=0.1
+nfolds=10
+alpha=0
+stn=10
+
+if(family=="gaussian") {
+    TREX.c.vector <- 2 
+  } else {
+    TREX.c.vector <- 1
+  }
+  num.obs <- nrow(X)
+  num.par <- ncol(X)
+  
+  ##### signal-to-noise ratio for gaussian family case 
+  if(family == "gaussian") {
+    stn <- stn # signal-to-noise ratio
+  }else{
+    stn <- NA
+  }
+  ###compute T-ridge estimators
+  par0 <-rep(0,num.par)
+  par1 <- optim_ObLs(par0,X,y,family)
+  
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ###find the stationary point
+    GlmTrex.estimation <- optim_ObFn(par1,X,y,family,TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+    
+  }
+  
+  edr.lambda <- Lqnorm(2,GradientLs(GlmTrex.estimators,X,y,family)) / (2 * Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=nlambda)
+  }
+  
+ 
+  Ridge.estimators <- matrix(nrow=num.par, ncol=nlambda)
+  cost <- rep(0, nlambda)
+  
+  init <- cv.glmnet(X, y, nfolds=nfolds, alpha=alpha,   family=family)
+  init.estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=init$lambda.min)
+  init.vector <- as.vector(coef(init.estimation))[-1]
+  for(tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+    if(family=="gaussian"){
+      estimation <- glmnet(X, y, alpha=alpha, family=family, lambda=r)
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    }else {
+  
+      estimation <- optim_Ridge(init.vector,X,y,family,r)
+      Ridge.estimators[, tune] <- estimation
+    }
+    
+    ####compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- ObjectiveFunction(estimator.r,family,y,X,TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+})
+```
+
+
+```{r}
+data<-genDataList(300, rep(0, 500), 500, 0.,
+            rnorm(500, mean = 0, sd = 1), 10,"poisson")
+X<-data$normData
+y<-data$y
+beta<-data$beta
+family<-"poisson"
+
+#X_new<-cbind(rep(1,100),X)
+svd<-rsvd(X)
+v<-svd$v
+dim(v)
+d<-svd$d
+u<-svd$u
+d<-diag(d)
+R<-u%*%d
+dim(as.vector(est1))
+TridgeEst1(X,y,family,"glmnet")
+init <- cv.glmnet(X, y, nfolds=10, alpha=0,family=family)
+init.estimation <- glmnet(X, y, alpha=0, family=family, lambda=init$lambda.min)
+est1<-as.vector(stats::coef(init.estimation)[-1])
+res<-optim_Ridge(est1,X,y,family,0.1)
+res1<-optim_Ridge(rep(0,300),X,y,family,0.1)
+res-res1
+est1<-v%*%est1
+Lqnorm(2, abs(X %*% (res1 - beta))) / sqrt(100)
+Lqnorm(2, abs(X %*% (res - beta))) / sqrt(100)
+
+init <- cv.glmnet(X, y, nfolds=10, alpha=0,family=family)
+init.estimation <- glmnet(R, y, alpha=0, family=family, lambda=init$lambda.min)
+est3<-as.vector(stats::coef(init.estimation)[-1])
+est3<-v%*%est3
+
+init <- cv.glmnet(R, y, nfolds=10, alpha=0,family=family)
+init.estimation <- glmnet(R, y, alpha=0, family=family, lambda=init$lambda.min)
+est2<-as.vector(stats::coef(init.estimation)[-1])
+est2<-v%*%est2
+
+v%*%est2
+init.vector <- as.vector(coef(init.estimation))[-1]
+est1<-glmnet(X, y, alpha=0,family="poisson", lambda=0.01)
+pfit = predict(est1, X,s=0.01,type ="coefficients")
+plot(pfit,y)
+p1<-Lqnorm(2, abs(X %*% (est1 - beta))) / sqrt(100)
+p1/Lqnorm(2, (X %*% beta)) * sqrt(100)
+p2<-Lqnorm(2, abs(X %*% (est2 - beta))) / sqrt(100)
+p2/Lqnorm(2, (X %*% beta)) * sqrt(100)
+p3<-Lqnorm(2, abs(X %*% (est3 - beta))) / sqrt(100)
+p3/Lqnorm(2, (X %*% beta)) * sqrt(100)
+
+Lqnorm(2, (est1 - beta))
+Lqnorm(2, (est2 - beta))
+Lqnorm(2, (est3 - beta))
+est1<-as.vector(stats::coef(est1)[-1])
+est1-est2
+est2<-glmnet(R, y, alpha=0, family="poisson", lambda=0.01)
+pfit2 = predict(est2, R,type ="response")
+pfit2-y
+est2<-v%*%pfit2[-1]
+est2
+est2<-as.vector(stats::coef(est2)[-1])
+est2<-v%*%est2
+est2-pfit[-1]
+profvis({
+svd<-rsvd(X)
+v<-svd$v
+d<-svd$d
+u<-svd$u
+d<-diag(d)
+R<-u%*%d
+init<-v%*%beta
+est1<-TridgeEst1(X,y,family,"glmnet")
+est2<-TridgeEst1(X,y,family,"random")
+est3<-TridgeEst1(X,y,family,"zero")
+est3-est2
+})
+```
+
+
+
+# To see whether original and Rcpp versions give almost the same result.
+```{r}
+num.runs<-5
+for(tune in 1:num.runs){
+  data<-genDataList(100, rep(0, 300), 300, 0.,
+            rnorm(300, mean = 0, sd = 1), 10,"poisson")
+  X<-data$normData
+  y<-data$y
+  family<-"poisson"
+  beta<-data$beta
+  est1<-TridgeEst_init(X,y,family,"zero")
+  est2<-TridgeEst_init(X,y,family,"random")
+  est3<-TridgeEst1(X,y,family,"glmnet")
+  est4<-TridgeEst1(X,y,family,"X_R")
+  est5<-TridgeEst1(X,y,family,"R_R")
+  
+  
+  ## initialize matrix to store prediction error and beta error
+  errors.est1 <- matrix(nrow=num.runs, 1)
+  errors.est2 <- matrix(nrow=num.runs, 1)
+  errors.est3 <- matrix(nrow=num.runs, 1)
+  errors.est4 <- matrix(nrow=num.runs, 1)
+  errors.est5 <- matrix(nrow=num.runs, 1)
+  
+  relative.errors.est1<- matrix(nrow=num.runs, 1)
+  relative.errors.est2<- matrix(nrow=num.runs, 1)
+  relative.errors.est3<- matrix(nrow=num.runs, 1)
+  relative.errors.est4<- matrix(nrow=num.runs, 1)
+  relative.errors.est5<- matrix(nrow=num.runs, 1)
+  
+  beta.errors.est1 <- matrix(nrow=num.runs, 1)
+  beta.errors.est2 <- matrix(nrow=num.runs, 1)
+  beta.errors.est3 <- matrix(nrow=num.runs, 1)
+  beta.errors.est4 <- matrix(nrow=num.runs, 1)
+  beta.errors.est5 <- matrix(nrow=num.runs, 1)
+  
+  relative.beta.errors.est1<- matrix(nrow=num.runs, 1)
+  relative.beta.errors.est2<- matrix(nrow=num.runs, 1)
+  relative.beta.errors.est3<- matrix(nrow=num.runs, 1)
+  relative.beta.errors.est4<- matrix(nrow=num.runs, 1)
+  relative.beta.errors.est5<- matrix(nrow=num.runs, 1)
+  
+  ### compute error for each run
+  
+  ##prediction error
+  errors.est1[tune,1]<-Lqnorm(2, abs(X %*% (est1 - beta))) / sqrt(100)
+  errors.est2[tune,1]<-Lqnorm(2, abs(X %*% (est2 - beta))) / sqrt(100)
+  errors.est3[tune,1]<-Lqnorm(2, abs(X %*% (est3 - beta))) / sqrt(100)
+  errors.est4[tune,1]<-Lqnorm(2, abs(X %*% (est4 - beta))) / sqrt(100)
+  errors.est5[tune,1]<-Lqnorm(2, abs(X %*% (est5 - beta))) / sqrt(100)
+  
+  
+  ## relative prediction error
+  relative.errors.est1[tune,1]<-errors.est1[tune,1]/ Lqnorm(2, (X %*% beta)) * sqrt(100)
+  relative.errors.est2[tune,1]<-errors.est2[tune,1]/ Lqnorm(2, (X %*% beta)) * sqrt(100)
+  relative.errors.est3[tune,1]<-errors.est3[tune,1]/ Lqnorm(2, (X %*% beta)) * sqrt(100)
+  relative.errors.est4[tune,1]<-errors.est4[tune,1]/ Lqnorm(2, (X %*% beta)) * sqrt(100)
+  relative.errors.est5[tune,1]<-errors.est5[tune,1]/ Lqnorm(2, (X %*% beta)) * sqrt(100)
+  
+  ##beta error
+  beta.errors.est1[tune,1] <-Lqnorm(2, (est1 - beta))
+  beta.errors.est2[tune,1] <-Lqnorm(2, (est2 - beta))
+  beta.errors.est3[tune,1] <-Lqnorm(2, (est3 - beta))
+  beta.errors.est4[tune,1] <-Lqnorm(2, (est4 - beta))
+  beta.errors.est5[tune,1] <-Lqnorm(2, (est5 - beta))
+  
+  ##relative beta error
+  relative.beta.errors.est1[tune,1]<-beta.errors.est1[tune,1]/ Lqnorm(2, beta)
+  relative.beta.errors.est2[tune,1]<-beta.errors.est2[tune,1]/ Lqnorm(2, beta)
+  relative.beta.errors.est3[tune,1]<-beta.errors.est3[tune,1]/ Lqnorm(2, beta)
+  relative.beta.errors.est4[tune,1]<-beta.errors.est4[tune,1]/ Lqnorm(2, beta)
+  relative.beta.errors.est5[tune,1]<-beta.errors.est5[tune,1]/ Lqnorm(2, beta)
+  cat("run: ")
+  cat(tune)
+  cat("         ")
+}
+```
+
+```{r}
+cat('Average prediction error for est1\n')
+Matrix::mean(errors.est1[, 1])
+cat('Average prediction error for est2\n')
+Matrix::mean(errors.est2[, 1])
+cat('Average prediction error for est3\n')
+Matrix::mean(errors.est3[, 1])
+cat('Average prediction error for est4\n')
+Matrix::mean(errors.est4[, 1])
+cat('Average prediction error for est5\n')
+Matrix::mean(errors.est5[, 1])
+
+
+
+cat('Average relative prediction error for est1\n')
+Matrix::mean(relative.errors.est1[, 1])
+cat('Average relative prediction error for est2\n')
+Matrix::mean(relative.errors.est2[, 1])
+cat('Average relative prediction error for est3\n')
+Matrix::mean(relative.errors.est3[, 1])
+cat('Average relative prediction error for est4\n')
+Matrix::mean(relative.errors.est4[, 1])
+cat('Average relative prediction error for est5\n')
+Matrix::mean(relative.errors.est5[, 1])
+
+
+cat('Average beta error for est1\n')
+Matrix::mean(beta.errors.est1[, 1])
+cat('Average beta error for est2\n')
+Matrix::mean(beta.errors.est2[, 1])
+cat('Average beta error for est3\n')
+Matrix::mean(beta.errors.est3[, 1])
+cat('Average beta error for est4\n')
+Matrix::mean(beta.errors.est4[, 1])
+cat('Average beta error for est5\n')
+Matrix::mean(beta.errors.est5[, 1])
+
+
+cat('Average relative beta error for est1\n')
+Matrix::mean(relative.beta.errors.est1[, 1])
+cat('Average relative beta error for est2\n')
+Matrix::mean(relative.beta.errors.est2[, 1])
+cat('Average relative beta error for est3\n')
+Matrix::mean(relative.beta.errors.est3[, 1])
+cat('Average relative beta error for est4\n')
+Matrix::mean(relative.beta.errors.est4[, 1])
+cat('Average relative beta error for est5\n')
+Matrix::mean(relative.beta.errors.est5[, 1])
+
+
+## random, R_R 误差很大，X_R比glmnet大一点点
+```
+
+
+

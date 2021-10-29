@@ -1,0 +1,687 @@
+---
+title: "T-ridge comparisons"
+author: "Mohan Zhao"
+date: "10/02/2021"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+
+```{r required-packages}
+if (!requireNamespace("pacman")) install.packages("pacman")
+pacman::p_load_gh("mohan-zhao/myTridge")
+pacman::p_load(glmnet)
+pacman::p_load_gh("r-lib/bench")
+pacman::p_load(magrittr)
+pacman::p_load(ggbeeswarm)
+pacman::p_load(ggplot2)
+```
+
+
+# Overview
+
+We set out to speed up the tridge algorithm by implementing the core functions in `C++` and calling them in `R` using the `Rcpp` package. The goal of this document is to:
+
+1. Compare the original implementation (https://github.com/LedererLab/tridge) vs. the new implementation (https://github.com/mohan-zhao/myTridge), henceforth referred to as the `myTridge` package. We want to make sure the results are the same, while showing the speed improvements (if any) for the three families (gaussian, poisson, binomial).  
+2. See if there are any aditional speedups possible by changing the starting values for the tridge algorith. More specifically, we compare the glmnet starting values (the default) with a random vector and zero vector initialization. 
+
+
+# Original tridge implementation
+
+Here are the functions used in the original implementation from https://github.com/LedererLab/tridge. Note that we had to slightly modify these so that they do not rely on objects being available in the global environment. Instead, each needed value is passed as an argument to the function. In addition, we prefixed these function names with `old` so as to not clash with the function names in the `myTridge` package.
+
+```{r tridge-functions}
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","qnorm.R"))
+# rename to Lqnorm to not overried stats::qnorm
+oldLqnorm <- function(q, v){
+  (sum(abs(v) ^ q)) ^ (1 / q)
+}
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","MeanFunction.R"))
+#' Mean function in generalized linear model
+oldMeanFunction <- function (X, theta, Test.case){
+  # Description :
+  #               Compute the mean vector for generalized linear models.
+  # Usage : 
+  #         MeanFunction(X, theta, case)
+  # Arguments : 
+  #   X : A design matrix of dimension n * p.
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A mean vector of dimension n for generalized linear models. 
+
+  if (Test.case == "gaussain"){
+    result <- as.vector(X %*% theta)
+  } else if (Test.case == "poisson"){
+    result <- as.vector(exp(X %*% theta))
+  } else {
+    result <- as.vector(exp(X %*% theta)) / ( 1 + as.vector(exp(X %*% theta)))
+  }
+  return(result)
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","bFunction.R"))
+#' b function in generalized linear model
+oldbFunction <- function(X, theta, Test.case){
+  # Description :
+  #               Compute the mean vector for generalized linear models.
+  # Usage : 
+  #         MeanFunction(X, theta, case)
+  # Arguments : 
+  #   X : A design matrix of dimension n * p.
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A mean vector of dimension n for generalized linear models. 
+  
+  if (Test.case == "gaussian"){
+    result <- 0.5 * as.vector(X %*% theta) ^ 2
+  } else if (Test.case == "poisson"){
+    result <- as.vector(exp(X %*% theta))
+  } else {
+    result <- log(1 + as.vector(exp(X %*% theta)))
+  }
+  return(result)
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","MeanPrime.R"))
+#' mean.prime function in generalized linear model
+oldMeanPrime <- function (X, theta, Test.case){
+  # Description :
+  #               Compute the mean vector for generalized linear models.
+  # Usage : 
+  #         MeanFunction(X, theta, case)
+  # Arguments : 
+  #   X : A design matrix of dimension n * p.
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A mean vector of dimension n for generalized linear models. 
+  
+  if (Test.case == "gaussian"){
+    result <- rep(1, dim(X)[2])
+  } else if (Test.case == "poisson"){
+    result <- as.vector(exp(X %*% theta))
+  } else {
+    result <- as.vector(exp(X %*% theta)) / (1 +
+                                               as.vector(exp(X %*% theta))) ^ 2
+  }
+  return(result)
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","ObjectiveFunction.R"))
+oldObjectiveFunction <- function(theta, y, X, TREX.c, Test.case) {
+  # Description :
+  #               Compute the value of T-ridge object function.
+  # Usage : 
+  #         ObjectiveFunction(X, theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the T-ridge object function.
+
+  if(Test.case == "gaussian") {
+    loss <- as.vector(y - X %*% theta)
+    derivative <- as.vector(t(X) %*% (y - X %*% theta))
+    result <- (oldLqnorm(2, loss) ^ 2- oldLqnorm(2, y) ^ 2) / (TREX.c * oldLqnorm(2, derivative)) + oldLqnorm(2, theta)
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case))
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    regularization <- oldLqnorm(2, theta)
+    result <- -loss /  (TREX.c * oldLqnorm(2, tune.vector)) + regularization
+    return(result)
+  }
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","Gradient.R"))
+oldGradient <- function(theta, y, X, TREX.c, Test.case) {
+  # Description :
+  #               Compute the value of T-ridge derivative function.
+  # Usage : 
+  #         Gradient(X, theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the T-ridge derivative function.
+  
+  if(Test.case == "gaussian") {
+    derivative <- t(X) %*% (y - X %*% theta)
+    loss <- (y - X %*% theta)
+    result <- (oldLqnorm(2, loss) ^ 2- oldLqnorm(2, y) ^ 2) * t(X) %*% X %*% derivative /
+      (TREX.c * oldLqnorm(2, derivative) ^ 3) -
+      2 * derivative / (TREX.c * oldLqnorm(2, derivative)) +
+      theta / oldLqnorm(2, theta)
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case))
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    result <- -tune.vector / (TREX.c * oldLqnorm(2, tune.vector)) -
+      as.vector(0.5 * TREX.c * 2 * loss * t(tune.vector) %*% t(X) %*% (X * oldMeanPrime(X = X, theta = theta, Test.case = Test.case)) / (TREX.c ^ 2 * oldLqnorm(2, tune.vector) ^ 3)) +
+      theta / oldLqnorm(2, theta)
+    return(result)
+  }
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","ObjectEdr.R"))
+#' Objective function for edr
+oldObjectEdr <- function(theta, y, X, u, Test.case) {
+  # Description :
+  #               Compute the value of Edr object function.
+  # Usage : 
+  #         ObjectEdr(theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the Edr objective function.
+  
+  if(Test.case=="gaussian") {
+    loss <- as.vector(y - X %*% theta)
+    derivative <- as.vector(t(X) %*% (y - X %*% theta))
+    result <- (oldLqnorm(2, loss) ^ 2- oldLqnorm(2, y) ^ 2) + u * oldLqnorm(2, theta)
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case))
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    regularization <- oldLqnorm(2, theta)
+    result <- -loss + u * regularization
+    return(result)
+  }
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","GradientEdr.R"))
+#' Gradient function for edr
+oldGradientEdr <- function(theta, y, X, u, Test.case) {
+  # Description :
+  #               Compute the value of Edr derivative function.
+  # Usage : 
+  #         GradientEdr(theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the Edr derivative function.
+  
+  if(Test.case=="gaussian") {
+    derivative <- t(X) %*% (y - X %*% theta)
+    result <- -2 * derivative + u * theta / oldLqnorm(2, theta)
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case))
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    result <- -tune.vector  + u * theta / oldLqnorm(2, theta)
+    return(result)
+  }
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","ObjectRidge.R"))
+#' Objective function for ridge
+oldObjectRidge <- function(theta, y, X, r, Test.case) {
+  # Description :
+  #               Compute the value of Ridge object function.
+  # Usage : 
+  #         ObjectRidge(theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the Ridge objective function.
+  
+  if(Test.case=="gaussian") {
+    loss <- as.vector(y - X %*% theta)
+    derivative <- as.vector(t(X) %*% (y - X %*% theta))
+    result <- (oldLqnorm(2, loss) ^ 2- oldLqnorm(2, y) ^ 2) + r * oldLqnorm(2, theta) ^ 2
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case))
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    regularization <- oldLqnorm(2, theta) ^ 2
+    result <- -loss + r * regularization
+    return(result)
+  }
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","GradientRidge.R"))
+#' gradient function for ridge
+oldGradientRidge <- function(theta, y, X, r, Test.case) {
+  # Description :
+  #               Compute the value of Ridge object function.
+  # Usage : 
+  #         ObjectRidge(theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the Ridge objective function.
+  
+  if(Test.case == "gaussian") {
+    derivative <- t(X) %*% (y - X %*% theta)
+    result <- -2 * derivative + r * 2 * oldLqnorm(2, theta)
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case))
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    result <- -tune.vector  + r * 2 * oldLqnorm(2, theta)
+    return(result)
+  }
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","ObjectLs.R"))
+oldObjectLs <- function(theta, y, X, Test.case) {
+  # Description :
+  #               Compute the value of least-squares object function.
+  # Usage : 
+  #         ObjectLs(theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the least-squares objective function. 
+  
+  if(Test.case=="gaussian") {
+    loss <- as.vector(y - X %*% theta)
+    derivative <- as.vector(t(X) %*% (y - X %*% theta))
+    result <- (oldLqnorm(2, loss) ^ 2- oldLqnorm(2, y) ^ 2) 
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case)) 
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    regularization <- oldLqnorm(2, theta) ^ 2
+    result <- -loss 
+    return(result)
+  }
+}
+
+
+# -----------------------------------------------------------------------------------------------------
+# source(paste0("https://raw.githubusercontent.com/LedererLab/tridge/master/Additional%20functions/","GradientLs.R"))
+oldGradientLs <- function(theta, y, X, Test.case) {
+  # Description :
+  #               Compute the value of least-squares derivative function.
+  # Usage : 
+  #         GradientLs(theta)
+  # Arguments : 
+  #   theta : A vector of dimension p.
+  # Returns : 
+  #   A real value of the least-squares derivative function.
+  
+  if(Test.case=="gaussian") {
+    derivative <- t(X) %*% (y - X %*% theta)
+    result <- -2 * derivative 
+    return(result)
+  } else {
+    loss <- sum(y * as.vector(X %*% theta) - oldbFunction(X = X, theta = theta, Test.case = Test.case)) 
+    tune.vector <- as.vector(t(y - oldMeanFunction(X = X, theta = theta, Test.case = Test.case)) %*% X)
+    result <- -tune.vector
+    return(result)
+  }
+}
+
+
+ 
+# this function is taken from the site above. we need to paste it here to put it into a function
+# for timing comparisons
+
+
+oldtridge <- function(X, y, Test.case = c("gaussian","poisson","binomial"), 
+                           num.par, TREX.c.vector, length.tuning) {
+  
+  Test.case <- match.arg(Test.case)
+  
+  # Perform the T-ridge pipeline
+  init <- optim(par=rep(0, num.par), fn=oldObjectLs, gr=oldGradientLs,method="CG", y = y, X = X, Test.case = Test.case)
+  init.vector <- init$par
+  GlmTrex.estimators <- matrix(nrow=num.par, ncol=length(TREX.c.vector))
+  for(trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    GlmTrex.estimation <- optim(par=init.vector, fn=oldObjectiveFunction, gr=oldGradient, method="CG", 
+                                y = y, X = X, Test.case = Test.case, TREX.c = TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation$par
+  }
+
+  edr.lambda <- oldLqnorm(2, oldGradientLs(theta = GlmTrex.estimators, y = y, X = X, Test.case = Test.case)) /
+    (2 * oldLqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + 0.1
+  r.min <- max(0.05, (edr.lambda - 0.1))
+  if(r.min == Inf || r.max == Inf ) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out=length.tuning)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out=length.tuning)
+  }
+
+  # only need cv.glmnet initializaion for poisson or binomial
+  if (Test.case != "gaussian") {
+    init <- glmnet::cv.glmnet(x = X, y = y, nfolds=10, alpha=0, family=Test.case,parallel = FALSE, foldid = rep(seq(1, 10), each = num.obs/10))
+    init.estimation <- glmnet::glmnet(X, y, alpha=0, family=Test.case,
+                              lambda=init$lambda.min)
+    init.vector <- as.vector(coef(init.estimation))[-1]
+  }
+  
+  Ridge.estimators <- matrix(nrow=num.par, ncol=length.tuning)
+  cost <- rep(0, length.tuning)
+
+  for(tune in 1:length.tuning) {
+    r <- tuning.parameters[tune]
+    if(Test.case=="gaussian") {
+      estimation <- glmnet::glmnet(x = X, y, alpha=0, family=Test.case, lambda=r)
+      Ridge.estimators[, tune] <- as.vector(coef(estimation)[-1])
+    } else {
+      estimation <- optim(par=init.vector, fn=oldObjectRidge, gr=oldGradientRidge,
+                          method="CG", y = y, X = X, r = r, Test.case = Test.case)
+      Ridge.estimators[, tune] <- estimation$par
+    }
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- oldObjectiveFunction(theta = estimator.r, y = y, X = X, TREX.c = TREX.c, Test.case = Test.case)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+  return(estimator)
+
+}
+
+```
+
+
+# The new tridge implementation
+
+The `TridgeEst2` function below calls a series of functions that have been coded in `C++`. We also add an additional argument for the initial vector which is passed to the optim function only in the poisson and binomial cases. 
+
+```{r pressure, echo=TRUE}
+pacman::p_load_gh("mohan-zhao/myTridge")
+TridgeEst2 <- function(X, y,
+                       family = c("gaussian", "binomial", "poisson"),
+                       num.par, TREX.c.vector,
+                       nlambda = 1000, lambda.min.limit = 0.05, c = 0.1, nfolds = 10, alpha = 0,
+                       init.vector = c("zero", "random", "glmnet")) {
+  
+  family <- match.arg(family)
+  init.vector <- match.arg(init.vector)
+  
+  ### compute T-ridge estimators
+  par0 <- rep(0, num.par)
+  par1 <- myTridge::optim_ObLs(par0, X, y, family)
+
+  GlmTrex.estimators <- matrix(nrow = num.par, ncol = length(TREX.c.vector))
+  for (trex.e in 1:length(TREX.c.vector)) {
+    TREX.c <- TREX.c.vector[trex.e]
+    ### find the stationary point
+    GlmTrex.estimation <- myTridge::optim_ObFn(par1, X, y, family, TREX.c)
+    GlmTrex.estimators[, trex.e] <- GlmTrex.estimation
+  }
+
+  # lambda sequence
+  edr.lambda <- myTridge::Lqnorm(2, myTridge::GradientLs(GlmTrex.estimators, X, y, family)) / (2 * myTridge::Lqnorm(2, GlmTrex.estimators))
+  r.max <- edr.lambda + c
+  r.min <- max(lambda.min.limit, (edr.lambda - c))
+  if (r.min == Inf || r.max == Inf) {
+    tuning.parameters <- seq(1e+10, 1e+11, length.out = nlambda)
+  } else {
+    tuning.parameters <- seq(r.min, r.max, length.out = nlambda)
+  }
+  
+  # initialization
+  if (init.vector == "zero") {
+    init.vector <- rep(0, num.par)
+  } else if (init.vector == "random") {
+    init.vector <- rnorm(num.par, mean = 0, sd = 1)
+  } else if (init.vector == "glmnet") {
+    if (family != "gaussian") {
+      init <- glmnet::cv.glmnet(X, y, nfolds = nfolds, alpha = alpha, family = family,parallel = FALSE, foldid = rep(seq(1, nfolds), each = num.obs/nfolds))
+      init.estimation <- glmnet::glmnet(X, y, alpha = alpha, family = family, lambda = init$lambda.min)
+      init.vector <- as.vector(coef(init.estimation))[-1]
+    }
+  }
+
+  Ridge.estimators <- matrix(nrow = num.par, ncol = nlambda)
+  cost <- rep(0, nlambda)
+  for (tune in 1:nlambda) {
+    r <- tuning.parameters[tune]
+    if (family == "gaussian") {
+      estimation <- glmnet::glmnet(X, y, alpha = alpha, family = family, lambda = r)
+      Ridge.estimators[, tune] <- as.vector(stats::coef(estimation)[-1])
+    } else {
+      estimation <- myTridge::optim_Ridge(init.vector, X, y, family, r)
+      Ridge.estimators[, tune] <- estimation
+    }
+
+    #### compute ObjectFunc value to find minimum
+    estimator.r <- as.vector(Ridge.estimators[, tune])
+    cost[tune] <- myTridge::ObjectiveFunction(estimator.r, family, y, X, TREX.c)
+  }
+  estimator <- Ridge.estimators[, which.min(cost)]
+
+  return(estimator)
+}
+```
+
+
+# Comparison between the old and new implementation
+
+We use the https://github.com/r-lib/bench package to benchmark the code, tracking execution time, memory allocations and garbage collections. Note that the `bench::mark` function will return an error if the results are not identical due to the `check = TRUE` argument. Therefore, in addition to the timings, this function will check that the old vs. new implementation is indeed the same. We compare the performance of each family over 20 iterations, i.e., we generate 1 simulated simulated datasets and fit the model on each simulated dataset. 
+
+```{r comparisons, bench.all_columns = TRUE}
+
+set.seed(42)
+num.obs <- 100 
+num.par <- 300 
+rho <- 0.35 
+SNR <- 10
+
+res <- bench::press(
+    Test.case = c("gaussian","poisson","binomial"), # run the same experiment for each family
+    {
+      TREX.c.vector <- ifelse(Test.case == "gaussian", 2, 1)
+      
+      # generate the data
+      simdata <- myTridge::genDataList(n = num.obs, mu = rep(0, num.par), p = num.par, rho = rho, 
+                                       beta = rnorm(num.par, mean = 0, sd = 1), SNR = SNR, family = Test.case)
+      
+      # run the comparisons
+      bench::mark(
+        min_time = Inf,
+        max_iterations = 20,
+        original = oldtridge(X = simdata$normData, y = simdata$y, Test.case = Test.case, 
+                             num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                             length.tuning = 20),
+        new = TridgeEst2(X = simdata$normData, y = simdata$y, family = Test.case, 
+                         num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                         init.vector = "glmnet", nlambda = 20),
+        check = TRUE,
+        relative = FALSE
+      )
+    }
+  )
+
+res
+ggplot2::autoplot(res)
+```
+
+## Problem with the binomial family
+
+No matter what I try, I can't get the old and new implementations to match for binomial family. Here is a reproducible example:
+
+```{r tridge-binomial}
+num.obs <- 100 
+num.par <- 300 
+rho <- k <- 0.35 
+Test.case <- "binomial" ; class.num <- 1
+SNR <- 10
+
+# TREX parameters
+if(Test.case=="gaussian") {
+  TREX.c.vector <- 2 
+} else {
+  TREX.c.vector <- 1
+}
+
+simdata <- myTridge::genDataList(n = num.obs, mu = rep(0, num.par), p = num.par, rho = rho, 
+                                       beta = rnorm(num.par, mean = 0, sd = 1), SNR = SNR, family = Test.case)
+
+original <- oldtridge(X = simdata$normData, y = simdata$y, Test.case = Test.case, 
+                       num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                       length.tuning = 20)
+new <- TridgeEst2(X = simdata$normData, y = simdata$y, family = Test.case, 
+                   num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                   init.vector = "glmnet", nlambda = 20)
+
+plot(original, new)
+abline(a=0,b=1)
+```
+
+
+
+
+# Comparing different starting values
+
+
+In this section we compare different starting values for the new implementation, and its effect on the timings.
+
+```{r starting-values, bench.all_columns = TRUE}
+
+num.obs <- 100 
+num.par <- 300 
+rho <- 0.35 
+SNR <- 10
+
+
+res2 <- bench::press(
+  Test.case = c("poisson", "binomial"),
+  {
+    TREX.c.vector <- ifelse(Test.case == "gaussian", 2, 1)
+    
+    # generate the data
+    simdata <- myTridge::genDataList(n = num.obs, mu = rep(0, num.par), p = num.par, rho = rho, 
+                                       beta = rnorm(num.par, mean = 0, sd = 1), SNR = SNR, family = Test.case)
+    bench::mark(
+      min_time = Inf,
+      max_iterations = 20,
+      
+      random = TridgeEst2(X = simdata$normData, y = simdata$y, family = Test.case, 
+                          num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                          init.vector = "random", nlambda = 20),
+      glmnet = TridgeEst2(X = simdata$normData, y = simdata$y, family = Test.case, 
+                          num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                          init.vector = "zero", nlambda = 20),
+      check = TRUE
+    )
+  }
+)
+glmnet-random
+
+res2
+ggplot2::autoplot(res2)
+
+```
+
+
+
+```{r}
+devtools::session_info()
+```
+
+
+
+```{r}
+knitr::knit_exit()
+```
+
+
+
+
+
+```{r, eval=FALSE, echo=FALSE}
+
+simdata <- myTridge::genDataList(n = num.obs, mu = rep(0, num.par), p = num.par, rho = rho, 
+                                 beta = rnorm(num.par, mean = 0, sd = 1), SNR = SNR, family = Test.case)
+
+# qnorm(2, abs(X %*% (estimator - beta))) / sqrt(num.obs)
+pacman::p_load_gh("r-lib/bench")
+
+res1 <- bench::mark(
+  min_time = Inf,
+  max_iterations = 5,
+  original = oldtridge(X = simdata$normData, y = simdata$y, Test.case = Test.case, 
+                       num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                       length.tuning = 100),
+  new = TridgeEst2(X = simdata$normData, y = simdata$y, family = Test.case, 
+                   num.par = num.par, TREX.c.vector = TREX.c.vector, 
+                   init.vector = "glmnet", nlambda = 100),
+  check = TRUE
+)
+
+library(ggplot2)
+ggplot2::autoplot(res1)
+
+res1
+
+# source("./SimulationProcess/DataGeneration.R")
+# source("./SimulationProcess/K-foldCV.R")
+# source("./SimulationProcess/TRidge.R")
+```
+
+
+
+
+
+
+
+
+
+
+# Benchmarking our tridge implementation 
+
+In this section we provide benchmark timings for our `tridge` implementation. The majority of the functions were coded in `C++`, and called through `R` with `Rcpp`. 
+
+
+## Gaussian family
+
+```{r}
+simdata <- myTridge::genDataList(n = 100, mu = rep(0, 200), p = 200, rho = 0.35, beta = rnorm(200), SNR = 3, family = family)
+```
+
+
+
+
+
+
+
+```{r}
+
+beta_error <- replicate(n = 10, 
+                        expr = {
+                          simdata <- myTridge::genDataList(n = 100, mu = rep(0, 1000), 
+                                                           p = 1000, rho = 0.35, beta = rnorm(1000), 
+                                                           SNR = 3, family = "binomial")
+                          zero <- TridgeEst2(X = simdata$normData, y = simdata$y, family = simdata$family, init.vector = "zero")
+                          random <- TridgeEst2(X = simdata$normData, y = simdata$y, family = simdata$family, init.vector = "random")
+                          glmnet <- TridgeEst2(X = simdata$normData, y = simdata$y, family = simdata$family, init.vector = "glmnet")
+                          
+                          sapply(list(zero,random,glmnet), function(i) mean((i-simdata$beta)^2))
+                        })
+
+beta_error
+```
+
