@@ -304,7 +304,7 @@ arma::vec optim_ObFn(arma::vec theta,arma::mat X,arma::vec y,const std::string f
   return theta;
   
 }
-
+//Ridgefunction() is the function to compute ridge estimation for Gaussian case, 
 // [[Rcpp::export]]
 arma::vec Ridgefunction(double trex_c,arma::mat & Ridge_estimators,arma::vec & cost,arma::vec init_vector,arma::vec tuningPar, int nlambda,int obs,int cols,arma::mat u, arma::mat d,arma::mat v,arma::mat X,arma::vec y,const std::string & family,const std::string & type){
   arma::mat RTR;
@@ -348,6 +348,7 @@ arma::vec Ridgefunction(double trex_c,arma::mat & Ridge_estimators,arma::vec & c
   }
   return Ridge_estimators.col(cost.index_min());
 }
+//glmnet_binomial() is the a simplified version of glmnet in R to replace calling glmnet() to compute init.vector
 // [[Rcpp::export]]
 arma::vec glmnet_binomial(double lambda,arma::vec & beta_old,arma::mat X,arma::vec y,int obs){
   
